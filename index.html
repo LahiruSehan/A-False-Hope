@@ -19,6 +19,8 @@
         @keyframes loading-bar { 0% { transform: translateX(-100%); } 100% { transform: translateX(200%); } }
         .animate-loading { animation: loading-bar 2s ease-in-out infinite; }
         .hero-gradient { background: linear-gradient(90deg, rgba(15, 23, 42, 0.95) 0%, rgba(15, 23, 42, 0.6) 50%, rgba(15, 23, 42, 0) 100%); }
+        .animate-in { animation: animate-in 0.5s ease-out; }
+        @keyframes animate-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-900 transition-colors duration-300">
@@ -76,16 +78,20 @@
         <!-- Library Section -->
         <div class="max-w-7xl mx-auto px-6 py-20">
             <div class="flex justify-between items-end mb-12">
-                <h2 class="text-4xl font-bold text-slate-900">Your Library</h2>
+                <h2 class="text-4xl font-bold text-slate-900 tracking-tight">Your Library</h2>
                 <button id="logout-btn" class="text-sm font-bold text-slate-400 hover:text-red-500 transition-colors uppercase tracking-widest">Sign Out</button>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
                 <div class="book-card group cursor-pointer" onclick="showView('chapters-view')">
                     <div class="relative overflow-hidden rounded-3xl shadow-lg transition-all duration-500 group-hover:shadow-2xl group-hover:-translate-y-2">
                         <img src="https://picsum.photos/id/10/400/600" class="aspect-[2/3] w-full object-cover">
+                        <div class="absolute inset-0 bg-indigo-600/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                        <div class="absolute bottom-4 left-4 right-4">
+                            <span id="resume-text" class="bg-white text-indigo-600 px-3 py-1 rounded-full text-xs font-bold shadow-lg opacity-0 group-hover:opacity-100 transition-all translate-y-2 group-hover:translate-y-0">Start Reading</span>
+                        </div>
                     </div>
                     <div class="mt-6">
-                        <h3 class="font-bold text-xl text-slate-900">The Silent Echo</h3>
+                        <h3 class="font-bold text-xl text-slate-900 group-hover:text-indigo-600 transition-colors">The Silent Echo</h3>
                         <p class="text-slate-500">Elena Vance</p>
                     </div>
                 </div>
@@ -103,6 +109,7 @@
             <button class="p-3 hover:bg-slate-100 rounded-full"><svg class="w-6 h-6 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path></svg></button>
         </nav>
         <div class="max-w-4xl mx-auto px-6 mt-12">
+            <h2 class="text-2xl font-bold mb-8 text-slate-800">Table of Contents</h2>
             <div class="space-y-4" id="chapters-list">
                 <!-- Chapters injected here -->
             </div>
@@ -136,15 +143,16 @@
                 <span class="text-sm font-bold text-slate-400" id="like-count">0 Likes</span>
             </div>
             
-            <div class="space-y-6 mb-12" id="comments-list">
+            <div class="space-y-8 mb-12" id="comments-list">
                 <!-- Comments from Supabase -->
                 <p class="text-slate-400 italic">No comments yet. Be the first!</p>
             </div>
 
-            <div class="bg-white border rounded-2xl p-4 shadow-sm">
-                <textarea id="comment-input" class="w-full bg-transparent border-none focus:ring-0 text-slate-900 placeholder-slate-400" rows="3" placeholder="Share your thoughts on this chapter..."></textarea>
-                <div class="flex justify-end mt-2">
-                    <button id="post-comment-btn" class="bg-indigo-600 text-white font-bold px-6 py-2 rounded-xl text-sm hover:bg-indigo-500 transition-all">Post Comment</button>
+            <div class="bg-white border rounded-2xl p-6 shadow-sm border-slate-200 focus-within:border-indigo-500 transition-all">
+                <textarea id="comment-input" class="w-full bg-transparent border-none focus:ring-0 text-slate-900 placeholder-slate-400 resize-none text-sm" rows="3" placeholder="Share your thoughts on this chapter..."></textarea>
+                <div class="flex justify-between items-center mt-4">
+                    <p class="text-[10px] text-slate-400 uppercase tracking-widest">Public comment</p>
+                    <button id="post-comment-btn" class="bg-indigo-600 text-white font-bold px-8 py-2 rounded-xl text-xs hover:bg-indigo-500 transition-all shadow-lg active:scale-95">Post Comment</button>
                 </div>
             </div>
         </section>
