@@ -10,6 +10,16 @@ const supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SU
 let currentUser = null;
 let currentChapterId = 'chapter-1';
 
+/**
+ * Utility to get the correct redirect URL for GitHub Pages.
+ * It takes the current URL and removes hashes/query params.
+ */
+function getRedirectUrl() {
+    // This returns the full path (e.g., https://name.github.io/repo/) 
+    // instead of just the domain.
+    return window.location.href.split('#')[0].split('?')[0];
+}
+
 // Utility for showing views
 window.showView = function(viewId) {
     document.querySelectorAll('.view').forEach(view => {
@@ -39,14 +49,16 @@ async function checkAuth() {
         return;
     }
 
+    // Check current session
     const { data: { user } } = await supabase.auth.getUser();
     currentUser = user;
     
     // Auth state listener to handle redirects automatically
     supabase.auth.onAuthStateChange((event, session) => {
-        if (event === 'SIGNED_IN') {
-            currentUser = session.user;
-            window.showView('home-view');
+        console.log("Auth Event:", event);
+        if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+            currentUser = session?.user || null;
+            if (currentUser) window.showView('home-view');
         } else if (event === 'SIGNED_OUT') {
             currentUser = null;
             window.showView('login-view');
@@ -56,6 +68,7 @@ async function checkAuth() {
     if (user) {
         window.showView('home-view');
     } else {
+        // If we're not logged in, show login view
         window.showView('login-view');
     }
 }
@@ -63,29 +76,38 @@ async function checkAuth() {
 async function loginWithGoogle() {
     if (!supabase) return alert("Supabase configuration missing!");
     
-    // This 'redirectTo' must match what you put in Supabase Dashboard > URL Configuration
+    const redirectTarget = getRedirectUrl();
+    console.log("Redirecting back to:", redirectTarget);
+
     const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-            redirectTo: window.location.origin
+            redirectTo: redirectTarget
         }
     });
 
-    if (error) alert("Login Error: " + error.message);
+    if (error) {
+        console.error("Login Error:", error);
+        alert("Login Error: " + error.message);
+    }
 }
 
 // 2. REAL PROGRESS SYNCING
 async function fetchUserProgress() {
     if (!supabase || !currentUser) return;
-    const { data } = await supabase
-        .from('user_progress')
-        .select('last_chapter_id')
-        .eq('user_id', currentUser.id)
-        .single();
-    
-    if (data) {
-        const progressText = document.getElementById('resume-text');
-        if (progressText) progressText.innerText = `Resume ${data.last_chapter_id.replace('-', ' ')}`;
+    try {
+        const { data } = await supabase
+            .from('user_progress')
+            .select('last_chapter_id')
+            .eq('user_id', currentUser.id)
+            .single();
+        
+        if (data) {
+            const progressText = document.getElementById('resume-text');
+            if (progressText) progressText.innerText = `Resume ${data.last_chapter_id.replace('-', ' ')}`;
+        }
+    } catch (e) {
+        console.warn("Progress table might not exist yet.");
     }
 }
 
@@ -191,10 +213,14 @@ async function postComment() {
 
 async function loadHomeStats() {
     if (!supabase) return;
-    const { data } = await supabase.from('site_stats').select('reader_count').single();
-    if (data) {
-        const counter = document.getElementById('global-reader-count');
-        if (counter) counter.innerText = data.reader_count.toLocaleString();
+    try {
+        const { data } = await supabase.from('site_stats').select('reader_count').single();
+        if (data) {
+            const counter = document.getElementById('global-reader-count');
+            if (counter) counter.innerText = data.reader_count.toLocaleString();
+        }
+    } catch (e) {
+        console.warn("Stats table might not exist.");
     }
 }
 
@@ -229,10 +255,19 @@ document.addEventListener('DOMContentLoaded', () => {
     checkAuth();
     setupChapters();
 
-    document.getElementById('google-login-btn')?.addEventListener('click', loginWithGoogle);
-    document.getElementById('logout-btn')?.addEventListener('click', () => {
-        supabase.auth.signOut().then(() => location.reload());
+    document.getElementById('google-login-btn')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        loginWithGoogle();
     });
+    
+    document.getElementById('logout-btn')?.addEventListener('click', () => {
+        if (supabase) {
+            supabase.auth.signOut().then(() => {
+                window.location.reload();
+            });
+        }
+    });
+
     document.getElementById('like-btn')?.addEventListener('click', toggleLike);
     document.getElementById('post-comment-btn')?.addEventListener('click', postComment);
 });
