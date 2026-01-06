@@ -256,22 +256,22 @@ async function loadHomeContent() {
         c.innerHTML = (data || []).map((u, i) => {
             const email = u.email ? u.email.toLowerCase() : '';
             const isAuth = email === APP_CONFIG.authorEmail.toLowerCase();
-            const isFirst = email === APP_CONFIG.firstReaderandreviewerEmail.toLowerCase();
+            const isFirst = email === APP_CONFIG.firstReaderEmail.toLowerCase();
             const isCoWriter = email === APP_CONFIG.coWriterEmail.toLowerCase();
             
             let name = u.display_name;
             if (isAuth) name = APP_CONFIG.author.toUpperCase();
             
-            const r = u.rating ? `<span class="user-rating-pill">${u.rating} ★</span>` : '';
+            const r = u.rating ? `<span class="user-rating-pill text-[7px] px-1.5 py-0.5 inline-block">${u.rating} ★</span>` : '';
             
             let glowClass = '';
             if (isAuth) glowClass = 'creator-glow';
-            else if (isFirst) glowClass = 'first-reader-and-Reviwer-glow';
+            else if (isFirst) glowClass = 'first-reader-glow';
             else if (isCoWriter) glowClass = 'co-writer-glow';
             
             let tagHTML = 'READER';
             if (isAuth) tagHTML = '<span class="author-tag">AUTHOR</span>';
-            else if (isFirst) tagHTML = '<span class="first-reader-and-Reviwer-tag">FIRST READER</span>';
+            else if (isFirst) tagHTML = '<span class="first-reader-tag">FIRST READER & FIRST REVIEWER</span>';
             else if (isCoWriter) tagHTML = '<span class="co-writer-tag">CO-WRITER (EMOTIONS)</span>';
 
             let nameColor = 'text-white';
@@ -282,12 +282,10 @@ async function loadHomeContent() {
             <div class="flex items-center gap-3 p-3 bg-white/5 rounded-xl mb-2 cursor-pointer" onclick="showUserProfile('${u.id}')">
                 <span class="text-[10px] font-black opacity-20 w-4">${i+1}</span>
                 <img src="${u.avatar_url}" class="w-8 h-8 rounded-full object-cover border border-white/5 ${glowClass}">
-                <div class="flex-1 min-w-0">
-                    <div class="flex items-center gap-1">
-                        <p class="text-[10px] font-black ${nameColor} truncate">${name}</p>
-                        ${r}
-                    </div>
-                    <p class="text-[7px] text-purple-400 font-bold uppercase">${tagHTML}</p>
+                <div class="flex-1 min-w-0 flex flex-col justify-center">
+                    <p class="text-[10px] font-black ${nameColor} truncate leading-tight">${name}</p>
+                    ${r ? `<div class="mt-1">${r}</div>` : ''}
+                    <div class="mt-1">${tagHTML}</div>
                 </div>
             </div>`;
         }).join('');
@@ -378,11 +376,11 @@ async function loadChapterComments(id) {
             let name = p.display_name;
             if (isAuth) name = APP_CONFIG.author.toUpperCase();
             
-            const r = p.rating ? `<span class="user-rating-pill ml-1">${p.rating} ★</span>` : '';
+            const r = p.rating ? `<span class="user-rating-pill text-[7px] ml-0 inline-block">${p.rating} ★</span>` : '';
             
             let glowClass = '';
             if (isAuth) glowClass = 'creator-glow';
-            else if (isFirst) glowClass = 'first-reader-and-Reviwer-glow';
+            else if (isFirst) glowClass = 'first-reader-glow';
             else if (isCoWriter) glowClass = 'co-writer-glow';
 
             let nameColor = 'text-slate-200';
@@ -393,8 +391,9 @@ async function loadChapterComments(id) {
             return `<div class="flex gap-3 items-start p-3 bg-white/5 rounded-xl border border-white/5 animate-in slide-in-from-bottom-2">
                 <img src="${p.avatar_url}" class="w-8 h-8 rounded-full object-cover ${glowClass}">
                 <div class="flex-1 min-w-0">
-                    <div class="flex items-center gap-1"><p class="text-[9px] font-black ${nameColor} uppercase truncate">${name}</p>${r}</div>
-                    <p class="text-[11px] text-slate-200 leading-snug mt-0.5">${c.content}</p>
+                    <p class="text-[9px] font-black ${nameColor} uppercase truncate leading-tight">${name}</p>
+                    ${r ? `<div class="mt-1">${r}</div>` : ''}
+                    <p class="text-[11px] text-slate-200 leading-snug mt-1">${c.content}</p>
                 </div>
             </div>`;
         }).join('') || '<div class="text-center py-4 opacity-10 text-[8px] uppercase tracking-widest">The archives are empty.</div>';
@@ -486,12 +485,12 @@ window.showUserProfile = async (userId) => {
         
         let glowClass = 'border border-purple-500/30';
         if (isAuth) glowClass = 'creator-glow';
-        else if (isFirst) glowClass = 'first-reader-and-Reviwer-glow';
+        else if (isFirst) glowClass = 'first-reader-glow';
         else if (isCoWriter) glowClass = 'co-writer-glow';
         
         let roleTag = '<span class="text-[8px] text-purple-400 font-bold uppercase">READER</span>';
         if (isAuth) roleTag = '<span class="author-tag">AUTHOR & CREATOR</span>';
-        else if (isFirst) roleTag = '<span class="first-reader-and-Reviwer-tag">FIRST READER</span>';
+        else if (isFirst) roleTag = '<span class="first-reader-tag">FIRST READER & FIRST REVIEWER</span>';
         else if (isCoWriter) roleTag = '<span class="co-writer-tag">CO-WRITER (EMOTIONS)</span>';
 
         content.innerHTML = `
@@ -522,17 +521,17 @@ async function loadReaders() {
             let name = r.display_name;
             if (isAuth) name = APP_CONFIG.author.toUpperCase();
             
-            const rating = r.rating ? `<span class="user-rating-pill">${r.rating} ★</span>` : '';
+            const rating = r.rating ? `<span class="user-rating-pill text-[7px] px-1.5 py-0.5 inline-block">${r.rating} ★</span>` : '';
             const isSelf = r.id === currentUser.id;
             
             let glowClass = '';
             if (isAuth) glowClass = 'creator-glow';
-            else if (isFirst) glowClass = 'first-reader-and-Reviwer-glow';
+            else if (isFirst) glowClass = 'first-reader-glow';
             else if (isCoWriter) glowClass = 'co-writer-glow';
             
             let roleText = 'READER';
             if (isAuth) roleText = 'AUTHOR';
-            else if (isFirst) roleText = 'FIRST READER';
+            else if (isFirst) roleText = 'FIRST READER & FIRST REVIEWER';
             else if (isCoWriter) roleText = 'CO-WRITER';
             
             let roleColor = 'text-purple-400';
@@ -545,8 +544,9 @@ async function loadReaders() {
                     <div class="flex items-center gap-3 cursor-pointer" onclick="showUserProfile('${r.id}')">
                         <img src="${r.avatar_url}" class="w-10 h-10 rounded-full object-cover border border-white/10 ${glowClass}">
                         <div>
-                            <div class="flex items-center gap-1"><p class="text-[11px] font-black text-white uppercase truncate">${name}</p>${rating}</div>
-                            <p class="text-[8px] ${roleColor} font-bold uppercase">${roleText}</p>
+                            <p class="text-[11px] font-black text-white uppercase truncate leading-tight">${name}</p>
+                            ${rating ? `<div class="mt-1">${rating}</div>` : ''}
+                            <p class="text-[8px] ${roleColor} font-bold uppercase mt-1">${roleText}</p>
                         </div>
                     </div>
                     ${!isSelf ? `<button onclick="toggleChat('${r.id}')" class="bg-blue-600 px-4 py-2 rounded-lg text-[9px] font-black uppercase text-white active:scale-95">Message</button>` : ''}
@@ -653,7 +653,7 @@ function updateUI() {
     if (isAuth) {
         roleText = 'AUTHOR & CREATOR';
     } else if (isFirst) {
-        roleText = 'FIRST READER';
+        roleText = 'FIRST READER & FIRST REVIEWER';
         roleColorClass = 'text-cyan-400';
     } else if (isCoWriter) {
         roleText = 'CO-WRITER (EMOTIONS)';
@@ -679,9 +679,9 @@ function updateUI() {
 
     document.querySelectorAll('#nav-user-avatar, #settings-avatar').forEach(img => {
         img.src = profileData.avatar_url;
-        img.classList.remove('creator-glow', 'first-reader-and-Reviwer-glow', 'co-writer-glow');
+        img.classList.remove('creator-glow', 'first-reader-glow', 'co-writer-glow');
         if(isAuth) img.classList.add('creator-glow');
-        else if(isFirst) img.classList.add('first-reader-and-Reviwer-glow');
+        else if(isFirst) img.classList.add('first-reader-glow');
         else if(isCoWriter) img.classList.add('co-writer-glow');
     });
 }
