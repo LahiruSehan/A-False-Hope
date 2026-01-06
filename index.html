@@ -3,241 +3,162 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>A FALSE HOPE | Reader</title>
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="theme-color" content="#020617">
-    
+    <title>A FALSE HOPE | Portal</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Inter:ital,wght@0,400;0,700;0,900;1,900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Inter:wght@300;400;600;900&display=swap" rel="stylesheet">
     <style>
-        :root { --aura-color: #a855f7; --void-black: #020617; --gold: #fbbf24; }
-        body { font-family: 'Inter', sans-serif; background: var(--void-black); color: #f8fafc; -webkit-tap-highlight-color: transparent; }
-        #particle-canvas { position: fixed; inset: 0; z-index: -1; pointer-events: none; transition: opacity 0.5s; }
-        
+        :root { --accent: #3b82f6; --crimson: #ef4444; }
+        body { font-family: 'Inter', sans-serif; background: #020617; color: #f8fafc; overflow: hidden; }
         .fantasy-font { font-family: 'Cinzel', serif; }
-        .view { height: 100vh; width: 100vw; position: fixed; inset: 0; z-index: 10; overflow-y: auto; -webkit-overflow-scrolling: touch; }
-        .hidden { display: none !important; }
+        .view { height: 100vh; width: 100vw; position: fixed; inset: 0; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; z-index: 10; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+        .view.hidden { opacity: 0; pointer-events: none; transform: translateY(20px); }
+        .glass { background: rgba(7, 10, 25, 0.7); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.05); }
+        .modal-bg { background: rgba(0,0,0,0.9); backdrop-filter: blur(12px); z-index: 500; }
         
-        .glass-panel { background: rgba(10, 15, 30, 0.85); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255,255,255,0.05); }
-        .bold-italic { font-weight: 900; font-style: italic; letter-spacing: -0.04em; }
+        .text-glow-crimson { text-shadow: 0 0 10px rgba(239, 68, 68, 0.5); }
+        .btn-void { background: linear-gradient(135deg, #1e40af, #3b82f6); box-shadow: 0 0 20px rgba(59, 130, 246, 0.2); transition: all 0.3s; }
+        .btn-void:active { transform: scale(0.96); opacity: 0.8; }
         
-        /* Modal Backdrop - Full Darkening */
-        .modal-bg { background: rgba(0, 0, 0, 0.96); backdrop-filter: blur(12px); transition: all 0.3s ease; }
-
-        /* RED Title Gradient */
-        .animated-title {
-            background: linear-gradient(to right, #7f1d1d, #dc2626, #f87171, #7f1d1d);
-            background-size: 300% auto; -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-            animation: gradient-flow 4s linear infinite; display: inline-block; white-space: nowrap;
-        }
-        @keyframes gradient-flow { 0% { background-position: 0% center; } 100% { background-position: 100% center; } }
+        .online-ring { position: relative; }
+        .online-ring::after { content: ''; position: absolute; bottom: 0; right: 0; width: 12px; height: 12px; background: #22c55e; border: 2px solid #020617; border-radius: 50%; box-shadow: 0 0 10px #22c55e; }
         
-        /* DARK BLUE Read Now Button */
-        .btn-read-now {
-            background: linear-gradient(270deg, #172554, #1e40af, #3b82f6, #172554);
-            background-size: 300% 300%;
-            animation: gradient-move 3s ease infinite;
-            color: white; border: 1px solid rgba(59, 130, 246, 0.3);
-        }
-
-        .chapter-tablet {
-            position: relative;
-            background: linear-gradient(135deg, #0f172a 0%, #020617 100%);
-            border: 1px solid rgba(168, 85, 247, 0.2);
-            box-shadow: inset 0 0 20px rgba(168, 85, 247, 0.1);
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            overflow: hidden;
-        }
-        .chapter-tablet:active { transform: scale(0.97); border-color: var(--gold); }
-        
-        .chapter-num-glow {
-            font-size: 1rem; font-weight: 900; line-height: 1;
-            background: linear-gradient(to bottom, #fff 0%, var(--gold) 100%);
-            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-            filter: drop-shadow(0 0 5px rgba(251, 191, 36, 0.4));
-            min-width: 2.5ch; text-align: center;
-        }
-
-        .action-orb {
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 50%; width: 50px; height: 50px;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            transition: all 0.3s ease;
-        }
-        
-        .author-tag { background: linear-gradient(to right, #7e22ce, #db2777); border-radius: 4px; padding: 2px 6px; font-size: 8px; font-weight: 900; color: white; text-transform: uppercase; letter-spacing: 0.1em; }
-        .user-rating-pill { background: rgba(251, 191, 36, 0.15); color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.3); padding: 1px 6px; border-radius: 99px; font-size: 8px; font-weight: 900; }
-
-        .hero-wrapper { max-width: 800px; margin: 0 auto; position: relative; }
-        .hero-image-container { position: relative; width: 100%; height: 35vh; overflow: hidden; }
-        .hero-image { width: 100%; height: 100%; object-fit: cover; }
-        .hero-black-fade { position: absolute; bottom: 0; left: 0; right: 0; height: 100%; background: linear-gradient(to top, var(--void-black) 0%, transparent 80%); }
-        
-        .tab-btn { transition: 0.3s; color: rgba(255,255,255,0.3); }
-        .tab-btn.active { border-bottom: 2px solid var(--aura-color); color: white; }
-
-        @keyframes gradient-move {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
-        }
-
-        .creator-glow { 
-            box-shadow: 0 0 15px rgba(168, 85, 247, 0.5); 
-            border: 2px solid #a855f7 !important;
-        }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-thumb { background: rgba(59, 130, 246, 0.3); border-radius: 10px; }
     </style>
 </head>
-<body class="bg-[#020617]">
-    <div id="brightness-overlay"></div>
-    <canvas id="particle-canvas"></canvas>
+<body>
+    <canvas id="particle-canvas" class="fixed inset-0 pointer-events-none z-0 opacity-30"></canvas>
 
-    <!-- NAVIGATION -->
-    <nav id="app-nav" class="fixed top-0 left-0 right-0 z-[100] hidden safe-top glass-panel">
-        <div class="max-w-4xl mx-auto px-4 py-2 flex items-center justify-between h-14">
-            <div class="flex items-center gap-2 flex-1 min-w-0">
-                <button id="master-back-btn" onclick="goBack()" class="p-1.5 hover:bg-white/5 rounded-full hidden">
-                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="3" d="M15 19l-7-7 7-7"></path></svg>
-                </button>
-                <div id="nav-profile-block" class="flex items-center gap-2 cursor-pointer overflow-hidden" onclick="toggleModal('settings-modal')">
-                    <img id="nav-user-avatar" src="" class="w-9 h-9 rounded-full border border-white/10 object-cover flex-shrink-0 bg-slate-800">
-                    <div class="flex flex-col min-w-0">
-                        <div class="flex items-center gap-1">
-                            <p id="nav-user-name" class="text-[11px] font-black text-white uppercase truncate">USER</p>
-                            <span id="nav-rating-pill" class="user-rating-pill hidden">0 ★</span>
-                        </div>
-                        <span id="nav-user-role" class="text-[9px] font-bold text-purple-400 uppercase tracking-tighter">READER</span>
-                    </div>
+    <!-- NAVIGATION BAR -->
+    <nav id="app-nav" class="fixed top-0 left-0 right-0 z-[100] hidden glass h-16 flex items-center px-6 justify-between border-b">
+        <div class="flex items-center gap-4">
+            <button id="nav-back-btn" class="hidden p-2 hover:bg-white/5 rounded-full transition-all">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>
+            </button>
+            <div class="flex items-center gap-3 cursor-pointer group" onclick="toggleModal('profile-modal')">
+                <img id="nav-avatar" src="" class="w-10 h-10 rounded-full object-cover border-2 border-blue-500/30 group-hover:border-blue-500 transition-all">
+                <div class="flex flex-col">
+                    <span id="nav-username" class="text-[10px] font-black uppercase tracking-widest text-white">USER</span>
+                    <span id="nav-status" class="text-[8px] text-blue-400 font-bold uppercase tracking-tighter">DISCIPLE</span>
                 </div>
             </div>
-
-            <div class="flex items-center gap-2">
-                <button id="messages-btn" onclick="showView('readers-view')" class="p-2 text-slate-400">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
-                </button>
-                <button onclick="toggleModal('app-settings-modal')" class="p-2 text-slate-400">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path></svg>
-                </button>
-            </div>
+        </div>
+        <div class="flex items-center gap-2">
+            <button onclick="showView('social-view')" class="p-2 text-slate-400 hover:text-white"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg></button>
+            <button onclick="showView('chapters-view')" class="p-2 text-slate-400 hover:text-white"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg></button>
         </div>
     </nav>
 
-    <!-- VIEWS -->
-    <section id="loading-view" class="view flex flex-col items-center justify-center bg-black">
-        <div class="bold-italic text-4xl text-white opacity-60 animate-pulse">A FALSE HOPE</div>
-    </section>
-
-    <section id="login-view" class="view hidden flex flex-col items-center justify-center bg-black p-10">
-        <div class="text-center space-y-10">
-            <h1 class="bold-italic text-6xl text-white">A FALSE<br>HOPE</h1>
-            <button id="google-login-btn" class="px-8 py-3.5 bg-purple-600 text-white font-bold text-xs tracking-widest rounded-lg">LOG IN WITH GOOGLE</button>
-        </div>
-    </section>
-
-    <section id="home-view" class="view hidden bg-transparent pt-0 pb-32">
-        <div class="hero-wrapper">
-            <div class="hero-image-container"><img src="https://i.ibb.co/0jNjDF8k/Cover2.png" class="hero-image"><div class="hero-black-fade"></div></div>
-            <div class="px-6 -mt-10 relative z-10">
-                <h2 class="bold-italic text-4xl animated-title mb-[-6px]">A FALSE HOPE</h2>
-                <p class="text-[12px] text-slate-400 font-medium max-w-[280px] mt-2">Official reader portal.</p>
-                
-                <div class="flex items-center gap-3 mt-5">
-                    <button onclick="showView('chapters-view')" class="btn-read-now h-11 flex-1 rounded-lg font-bold text-[12px] tracking-widest active:scale-95">READ NOW</button>
-                    <button onclick="shareStory()" class="w-11 h-11 bg-white/5 border border-white/10 rounded-lg flex items-center justify-center">🔗</button>
-                    <button onclick="toggleModal('rating-modal')" class="w-11 h-11 bg-white/5 border border-white/10 rounded-lg flex items-center justify-center text-yellow-500">★</button>
-                </div>
-
-                <div class="mt-8 flex items-center gap-3 overflow-x-auto py-2 no-scrollbar whitespace-nowrap">
-                    <h3 class="text-[9px] font-black text-white uppercase tracking-widest opacity-40">Special Recognition:</h3>
-                    <button onclick="openRecognition('MINASHA')" class="bg-red-900/40 px-5 py-2 rounded-full text-[10px] font-black text-white">MINASHA ❤️</button>
-                    <button onclick="openRecognition('AROSHA')" class="bg-orange-900/40 px-5 py-2 rounded-full text-[10px] font-black text-white">AROSHA 🔥</button>
-                </div>
-                
-                <div class="pt-6">
-                    <div class="flex gap-6 border-b border-white/5 mb-4">
-                        <button onclick="setHomeTab('leaderboard')" id="tab-leaderboard" class="tab-btn active pb-2 text-[10px] font-black uppercase">Top Readers</button>
-                        <button onclick="setHomeTab('gallery')" id="tab-gallery" class="tab-btn pb-2 text-[10px] font-black uppercase">Gallery</button>
-                    </div>
-                    <div id="home-tab-content" class="min-h-[200px] space-y-4 pb-10"></div>
-                </div>
+    <!-- LOADING VIEW -->
+    <section id="loading-view" class="view flex flex-col items-center justify-center bg-black z-[1000]">
+        <div class="relative">
+            <h1 class="fantasy-font text-4xl font-black text-crimson-gradient animate-pulse tracking-[0.5em] text-glow-crimson">A FALSE HOPE</h1>
+            <div class="absolute -bottom-8 left-1/2 -translate-x-1/2 w-32 h-1 bg-white/10 rounded-full overflow-hidden">
+                <div class="h-full bg-blue-600 animate-[loading_2s_infinite_ease-in-out]"></div>
             </div>
         </div>
     </section>
 
-    <section id="chapters-view" class="view hidden bg-transparent pt-14">
-        <div id="chapters-list-mobile" class="p-4 space-y-4 pb-32"></div>
+    <!-- LOGIN VIEW -->
+    <section id="login-view" class="view hidden flex flex-col items-center justify-center p-10 text-center bg-[#020617]">
+        <div class="mb-12">
+            <h1 class="fantasy-font text-7xl font-black leading-none mb-2">A FALSE<br><span class="text-red-600">HOPE</span></h1>
+            <p class="text-slate-500 uppercase tracking-[0.3em] text-[10px] font-bold">The Abyss Awaits Your Arrival</p>
+        </div>
+        <button id="google-login-btn" class="btn-void w-full max-w-sm py-5 rounded-2xl font-black text-xs tracking-widest uppercase flex items-center justify-center gap-3">
+            <img src="https://www.svgrepo.com/show/355037/google.svg" class="w-5 h-5"> Sign In with the Void
+        </button>
     </section>
 
+    <!-- HOME VIEW -->
+    <section id="home-view" class="view hidden pt-16 pb-32">
+        <div class="relative w-full h-[45vh]">
+            <img id="hero-img" src="" class="w-full h-full object-cover">
+            <div class="absolute inset-0 bg-gradient-to-t from-[#020617] via-[#020617]/40 to-transparent"></div>
+        </div>
+        <div class="px-8 -mt-20 relative z-10">
+            <h2 class="fantasy-font text-5xl font-black text-white leading-tight">A FALSE<br>HOPE</h2>
+            <p class="text-blue-400 text-[10px] font-black tracking-[0.2em] uppercase mt-2">v3.0 Official Reader</p>
+            
+            <div class="flex gap-4 mt-8">
+                <button onclick="showView('chapters-view')" class="btn-void flex-1 py-5 rounded-2xl font-black text-xs uppercase tracking-widest">Open Scrolls</button>
+                <button onclick="toggleModal('rating-modal')" class="bg-white/5 border border-white/10 w-16 rounded-2xl flex items-center justify-center text-yellow-500 hover:bg-white/10 transition-all">★</button>
+            </div>
+
+            <div class="mt-12 flex items-center gap-6 border-b border-white/5">
+                <button onclick="setHomeTab('leaderboard')" id="tab-leaderboard" class="pb-4 text-[10px] font-black uppercase text-white border-b-2 border-blue-500 transition-all">Leaderboard</button>
+                <button onclick="setHomeTab('news')" id="tab-news" class="pb-4 text-[10px] font-black uppercase text-slate-500 hover:text-white transition-all">Latest News</button>
+            </div>
+            <div id="home-content" class="mt-8 space-y-4"></div>
+        </div>
+    </section>
+
+    <!-- SOCIAL VIEW (LIVE USERS) -->
+    <section id="social-view" class="view hidden pt-24 px-6 pb-20">
+        <div class="flex items-center justify-between mb-8">
+            <h3 class="fantasy-font text-2xl font-black">LIVE FEED</h3>
+            <span class="bg-green-500/20 text-green-500 text-[9px] font-black px-3 py-1 rounded-full animate-pulse uppercase">Active Now</span>
+        </div>
+        <div id="social-list" class="space-y-4"></div>
+    </section>
+
+    <!-- CHAPTERS VIEW -->
+    <section id="chapters-view" class="view hidden pt-24 pb-20 px-6">
+        <div class="flex items-center gap-3 mb-10">
+            <div class="w-1.5 h-10 bg-blue-600 rounded-full"></div>
+            <h3 class="fantasy-font text-3xl font-black uppercase tracking-tight">Archives</h3>
+        </div>
+        <div id="chapters-list" class="grid grid-cols-1 gap-5"></div>
+    </section>
+
+    <!-- READER VIEW -->
     <section id="reader-view" class="view hidden bg-black">
-        <div id="reader-progress-bar" class="fixed top-0 left-0 h-1.5 bg-blue-600 w-0 z-[200]"></div>
-        <div id="reader-pages" class="w-full max-w-3xl mx-auto relative pt-16"></div>
+        <div class="fixed top-0 left-0 right-0 h-1 z-[200]">
+            <div id="reader-progress" class="h-full bg-blue-500 w-0 transition-all shadow-[0_0_10px_#3b82f6]"></div>
+        </div>
+        <div id="reader-pages" class="w-full max-w-4xl mx-auto flex flex-col gap-px"></div>
     </section>
 
-    <section id="readers-view" class="view hidden bg-transparent pt-14">
-        <div id="readers-list" class="p-4 space-y-3 pb-32"></div>
-    </section>
+    <!-- PROFILE MODAL -->
+    <div id="profile-modal" class="fixed inset-0 hidden modal-bg flex items-center justify-center p-6" onclick="if(event.target===this) toggleModal('profile-modal')">
+        <div class="w-full max-w-sm glass p-10 rounded-[2.5rem] text-center shadow-2xl animate-in zoom-in-95 duration-200" onclick="event.stopPropagation()">
+            <div class="relative inline-block mb-6">
+                <img id="edit-avatar-preview" src="" class="w-28 h-28 rounded-full object-cover border-4 border-blue-600/30">
+                <button onclick="setNewAvatar()" class="absolute bottom-0 right-0 bg-blue-600 p-2 rounded-full border-4 border-[#020617]"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/></svg></button>
+            </div>
+            <input id="edit-display-name" type="text" placeholder="Disciple Name" class="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm text-white text-center mb-4 focus:border-blue-500 outline-none transition-all">
+            <textarea id="edit-bio" placeholder="Describe your essence..." class="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm text-white text-center h-28 resize-none mb-8 focus:border-blue-500 outline-none transition-all"></textarea>
+            <button onclick="saveProfile()" class="btn-void w-full py-4 rounded-xl font-black text-xs uppercase tracking-widest">Update Essence</button>
+            <button onclick="supabase.auth.signOut().then(() => location.reload())" class="mt-8 text-slate-500 hover:text-red-500 text-[9px] font-black uppercase tracking-tighter opacity-50 transition-all">Sever Connection</button>
+        </div>
+    </div>
 
-    <!-- MODALS -->
-    <div id="settings-modal" class="fixed inset-0 z-[500] hidden modal-bg flex items-center justify-center p-6" onclick="if(event.target === this) toggleModal('settings-modal')">
-        <div class="w-full max-w-[320px] glass-panel p-6 rounded-2xl space-y-5 border border-white/10" onclick="event.stopPropagation()">
-            <div class="flex justify-between items-center"><span class="text-[10px] font-black text-white uppercase">Profile</span><button onclick="toggleModal('settings-modal')" class="text-slate-500">✕</button></div>
-            <div class="flex flex-col items-center gap-2">
-                <img id="settings-avatar" src="" class="w-16 h-16 rounded-full object-cover bg-slate-800">
-                <div class="text-center">
-                    <div class="flex items-center justify-center gap-1 mb-1">
-                        <p id="settings-role-label" class="text-[8px] text-purple-400 font-black uppercase">READER</p>
-                        <span id="settings-rating-pill" class="user-rating-pill hidden">0 ★</span>
+    <!-- CHAT MODAL -->
+    <div id="chat-modal" class="fixed inset-0 hidden modal-bg flex flex-col pt-20" onclick="if(event.target===this) toggleModal('chat-modal')">
+        <div class="flex-1 flex flex-col glass rounded-t-[3rem] mt-auto h-[90vh] overflow-hidden animate-in slide-in-from-bottom duration-300" onclick="event.stopPropagation()">
+            <div class="p-6 border-b border-white/5 flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <img id="chat-target-avatar" src="" class="w-12 h-12 rounded-full object-cover border-2 border-white/10">
+                    <div>
+                        <h4 id="chat-target-name" class="font-black uppercase text-sm tracking-widest">NAME</h4>
+                        <p class="text-[8px] text-green-500 font-bold uppercase">Online Now</p>
                     </div>
-                    <p id="settings-user-name" class="text-xs font-black text-white uppercase">NAME</p>
                 </div>
+                <button onclick="toggleModal('chat-modal')" class="p-3 text-2xl opacity-20 hover:opacity-100 transition-all">&times;</button>
             </div>
-            <div class="space-y-3">
-                <input id="profile-edit-name" type="text" class="bg-white/5 border border-white/10 rounded-lg p-2 w-full text-xs text-white" placeholder="Display Name">
-                <textarea id="profile-edit-bio" rows="2" class="bg-white/5 border border-white/10 rounded-lg p-2 w-full text-xs text-white resize-none" placeholder="Short Bio"></textarea>
-                <button onclick="updateProfile()" class="w-full bg-purple-600 py-2 rounded-lg font-bold text-[10px] uppercase text-white">SAVE PROFILE</button>
+            <div id="chat-messages" class="flex-1 overflow-y-auto p-6 space-y-4 flex flex-col"></div>
+            <div class="p-6 bg-black/40 border-t border-white/5 safe-bottom flex gap-3">
+                <input id="chat-input" type="text" placeholder="Whisper into the void..." class="flex-1 bg-white/5 border border-white/10 rounded-full px-6 py-4 text-sm text-white focus:border-blue-500 outline-none">
+                <button onclick="sendChatMessage()" class="bg-blue-600 w-14 h-14 rounded-full flex items-center justify-center shadow-lg"><svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"/></svg></button>
             </div>
         </div>
     </div>
 
-    <div id="gallery-lightbox" class="fixed inset-0 z-[600] hidden modal-bg flex items-center justify-center p-4" onclick="toggleModal('gallery-lightbox')">
-        <div class="relative w-full h-full flex flex-col items-center justify-center" onclick="event.stopPropagation()">
-            <img id="lightbox-img" src="" class="max-w-full max-h-[60vh] rounded-lg shadow-2xl object-contain">
-            <div id="fanart-interactions" class="w-full max-w-[400px] mt-4 p-4 glass-panel rounded-2xl border border-white/10 space-y-4 overflow-y-auto max-h-[30vh] no-scrollbar"></div>
-        </div>
-    </div>
-
-    <div id="rating-modal" class="fixed inset-0 z-[500] hidden modal-bg flex items-center justify-center p-6" onclick="if(event.target === this) toggleModal('rating-modal')">
-        <div class="w-full max-w-[300px] glass-panel p-8 rounded-2xl text-center space-y-6 border border-white/10" onclick="event.stopPropagation()">
-            <h3 class="font-bold text-xs text-white uppercase tracking-widest">Rate the Story</h3>
-            <div id="star-container" class="flex justify-center py-2 text-2xl gap-2">
-                <span onclick="setRating(1)" class="star cursor-pointer opacity-30">★</span>
-                <span onclick="setRating(2)" class="star cursor-pointer opacity-30">★</span>
-                <span onclick="setRating(3)" class="star cursor-pointer opacity-30">★</span>
-                <span onclick="setRating(4)" class="star cursor-pointer opacity-30">★</span>
-                <span onclick="setRating(5)" class="star cursor-pointer opacity-30">★</span>
-            </div>
-            <button onclick="submitRating()" class="w-full py-3 bg-purple-600 rounded-lg font-bold text-[10px] uppercase tracking-widest">SUBMIT</button>
-        </div>
-    </div>
-
-    <div id="user-detail-modal" class="fixed inset-0 z-[600] hidden modal-bg flex items-center justify-center p-6" onclick="if(event.target === this) toggleModal('user-detail-modal')">
-        <div class="w-full max-w-[300px] glass-panel p-8 rounded-3xl text-center space-y-4 border border-white/10" onclick="event.stopPropagation()">
-            <div id="user-detail-content"></div>
-        </div>
-    </div>
-
-    <div id="recognition-modal" class="fixed inset-0 z-[500] hidden modal-bg flex items-center justify-center p-8" onclick="if(event.target === this) toggleModal('recognition-modal')">
-        <div class="w-full max-w-[280px] glass-panel p-8 rounded-2xl text-center space-y-4 border border-purple-500/20" onclick="event.stopPropagation()">
-            <div id="recognition-icon-box" class="text-3xl">❤️</div>
-            <h3 id="recognition-name" class="font-bold text-sm text-white tracking-widest uppercase">NAME</h3>
-            <p id="recognition-text" class="text-[10px] text-slate-400"></p>
-            <button onclick="toggleModal('recognition-modal')" class="w-full py-2.5 bg-purple-600 rounded-lg text-[9px] font-bold text-white uppercase">CLOSE</button>
-        </div>
-    </div>
-
-    <script src="index.js" type="module"></script>
+    <script type="module" src="index.js"></script>
+    <style>
+        @keyframes loading { 0% { transform: translateX(-100%); } 50% { transform: translateX(0%); } 100% { transform: translateX(100%); } }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+    </style>
 </body>
 </html>
