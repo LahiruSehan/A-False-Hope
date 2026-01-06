@@ -5,7 +5,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>A FALSE HOPE | Reader</title>
-    <!-- PWA Tags -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#020617">
@@ -14,19 +13,25 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,700;0,900;1,900&display=swap" rel="stylesheet">
     <style>
-        :root { --aura-color: #a855f7; --void-black: #020617; }
+        :root { --aura-color: #a855f7; --void-black: #020617; --brightness: 1; }
         body { font-family: 'Inter', sans-serif; background: var(--void-black); color: #f8fafc; overflow: hidden; -webkit-tap-highlight-color: transparent; }
-        #particle-canvas { position: fixed; inset: 0; z-index: -1; pointer-events: none; }
+        #particle-canvas { position: fixed; inset: 0; z-index: -1; pointer-events: none; transition: opacity 0.5s; }
         .view { height: 100vh; width: 100vw; overflow: hidden; position: fixed; inset: 0; z-index: 10; }
         .hidden { display: none !important; }
         .glass-panel { background: rgba(10, 15, 30, 0.85); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255,255,255,0.05); }
         .bold-italic { font-weight: 900; font-style: italic; letter-spacing: -0.04em; }
+        
         .animated-title {
             background: linear-gradient(to right, #a855f7, #ec4899, #3b82f6, #a855f7);
             background-size: 300% auto; -webkit-background-clip: text; -webkit-text-fill-color: transparent;
             animation: gradient-flow 4s linear infinite; display: inline-block; white-space: nowrap;
         }
         @keyframes gradient-flow { 0% { background-position: 0% center; } 100% { background-position: 100% center; } }
+        
+        /* Rotating Gear Animation */
+        .rotating-gear { animation: rotate 4s linear infinite; }
+        @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
         .hero-wrapper { max-width: 800px; margin: 0 auto; position: relative; }
         .hero-image-container { position: relative; width: 100%; height: 35vh; overflow: hidden; border-bottom: 1px solid rgba(168, 85, 247, 0.1); }
         .hero-image { width: 100%; height: 100%; object-fit: cover; }
@@ -35,43 +40,71 @@
         .scroll-container::-webkit-scrollbar { width: 4px; }
         .scroll-container::-webkit-scrollbar-thumb { background: rgba(168, 85, 247, 0.3); border-radius: 10px; }
         .aura-effect { box-shadow: 0 0 15px var(--aura-color); }
-        .settings-input { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 8px 12px; font-size: 12px; color: white; width: 100%; outline: none; }
+        
         .tab-btn { transition: 0.3s; color: rgba(255,255,255,0.3); }
         .tab-btn.active { border-bottom: 2px solid var(--aura-color); color: white; }
-        .expandable-content { max-height: 0; overflow: hidden; transition: max-height 0.4s ease-out; }
-        .expanded .expandable-content { max-height: 400px; }
+
+        /* Zoomable Images */
+        .zoom-container { overflow: hidden; position: relative; touch-action: pinch-zoom; }
+        .manga-page { transition: transform 0.2s ease-out; cursor: zoom-in; width: 100%; display: block; }
+        .manga-page.zoomed { transform: scale(2); cursor: zoom-out; transform-origin: center center; }
+
+        /* Brightness Overlay */
+        #brightness-overlay { position: fixed; inset: 0; background: black; pointer-events: none; z-index: 1000; opacity: 0; }
+        
+        .recognition-card { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 12px; }
     </style>
 </head>
 <body class="bg-[#020617]">
+    <div id="brightness-overlay"></div>
     <canvas id="particle-canvas"></canvas>
     <audio id="ambient-audio" loop src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"></audio>
 
     <!-- NAVIGATION -->
     <nav id="app-nav" class="fixed top-0 left-0 right-0 z-[100] hidden safe-top glass-panel">
         <div class="max-w-4xl mx-auto px-4 py-2 flex items-center justify-between">
-            <div class="flex items-center gap-2 flex-1 min-w-0 pr-4">
+            <!-- Left Side -->
+            <div id="nav-left" class="flex items-center gap-2 flex-1 min-w-0 pr-4">
                 <button id="master-back-btn" onclick="goBack()" class="p-1.5 hover:bg-white/5 rounded-full hidden flex-shrink-0">
                     <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="3" d="M15 19l-7-7 7-7"></path></svg>
                 </button>
-                <div class="flex items-center gap-2 cursor-pointer overflow-hidden flex-1" onclick="toggleModal('settings-modal')">
+                <div id="nav-profile-block" class="flex items-center gap-2 cursor-pointer overflow-hidden flex-1" onclick="toggleModal('settings-modal')">
                     <img id="nav-user-avatar" src="" class="w-8 h-8 rounded-full border border-white/10 object-cover flex-shrink-0">
                     <div class="flex flex-col min-w-0">
                         <p id="nav-user-name" class="text-[10px] font-black text-white uppercase truncate tracking-tight">USER</p>
                         <span id="nav-user-lvl" class="text-[8px] font-bold text-purple-400">LVL 1</span>
                     </div>
                 </div>
+                <!-- Reader specific progress -->
+                <div id="reader-nav-info" class="hidden flex-1 min-w-0">
+                    <div class="h-1 bg-white/10 rounded-full w-full max-w-[120px] overflow-hidden">
+                        <div id="reader-mini-progress" class="h-full bg-purple-500 w-0 transition-all duration-300"></div>
+                    </div>
+                </div>
             </div>
-            <div class="flex items-center gap-1 flex-shrink-0">
-                <button onclick="toggleModal('achievements-modal')" class="p-2 text-yellow-500">🏆</button>
-                <button onclick="showView('readers-view')" class="p-2 text-slate-400 relative">
+
+            <!-- Right Side -->
+            <div id="nav-right" class="flex items-center gap-1 flex-shrink-0">
+                <!-- Trophy and Messages hidden in Reader Mode via JS -->
+                <button id="trophy-btn" onclick="toggleModal('achievements-modal')" class="p-2 text-yellow-500">🏆</button>
+                <button id="messages-btn" onclick="showView('readers-view')" class="p-2 text-slate-400 relative">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
-                    <div id="new-msg-dot" class="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border border-black hidden"></div>
+                </button>
+                <!-- Reader Specific: Like & Comment -->
+                <button id="reader-like-btn" onclick="likeChapterAction()" class="p-2 text-slate-400 hidden">♥</button>
+                <button id="reader-comment-btn" onclick="openChapterComments()" class="p-2 text-slate-400 hidden">💬</button>
+                <!-- Universal Settings Gear -->
+                <button onclick="toggleModal('app-settings-modal')" class="p-2 text-slate-400 rotating-gear">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    </svg>
                 </button>
             </div>
         </div>
     </nav>
 
-    <!-- VIEWS -->
+    <!-- LOADING & LOGIN (Minimal changes) -->
     <section id="loading-view" class="view flex flex-col items-center justify-center bg-black">
         <div class="bold-italic text-4xl text-white opacity-60 animate-pulse">A FALSE HOPE</div>
         <p id="streak-msg" class="text-[9px] mt-2 opacity-30 tracking-[0.6em] uppercase">Synchronizing Souls</p>
@@ -88,34 +121,128 @@
     <section id="home-view" class="view hidden bg-transparent overflow-y-auto pt-0 pb-32 scroll-container">
         <div class="hero-wrapper">
             <div class="hero-image-container"><img src="https://i.ibb.co/0jNjDF8k/Cover2.png" class="hero-image"><div class="hero-black-fade"></div></div>
-            <div class="px-6 -mt-10 relative z-10 space-y-6">
-                <div class="flex flex-wrap gap-2"><span class="genre-tag">Sci-fi</span><span class="genre-tag">Action</span><span class="genre-tag">Mystery</span><span class="genre-tag">Romance</span><span class="genre-tag">Horror</span></div>
-                <h2 class="bold-italic text-4xl lg:text-5xl animated-title">A FALSE HOPE</h2>
-                <p class="text-[12px] text-slate-400 leading-relaxed font-medium">The official portal to the Sanctum. Survive the hope.</p>
-                <div class="flex items-center gap-3">
-                    <button onclick="showView('chapters-view')" class="bg-purple-600 h-11 flex-1 rounded-lg font-bold text-[12px] tracking-widest active:scale-95">READ NOW</button>
-                    <button onclick="shareStory()" class="btn-action w-11 h-11 bg-white/5 border border-white/10 rounded-lg flex items-center justify-center">🔗</button>
-                    <button onclick="toggleModal('rating-modal')" class="btn-action w-11 h-11 bg-white/5 border border-white/10 rounded-lg flex items-center justify-center text-yellow-500">★</button>
+            <div class="px-6 -mt-10 relative z-10">
+                <!-- Closely coupled Title and Summary -->
+                <div class="space-y-1">
+                    <div class="flex flex-wrap gap-2 mb-2"><span class="genre-tag">Sci-fi</span><span class="genre-tag">Action</span><span class="genre-tag">Mystery</span><span class="genre-tag">Romance</span><span class="genre-tag">Horror</span></div>
+                    <h2 class="bold-italic text-4xl lg:text-5xl animated-title">A FALSE HOPE</h2>
+                    <p class="text-[12px] text-slate-400 leading-tight font-medium max-w-[280px]">The official portal to the Sanctum. Survive the hope.</p>
                 </div>
                 
+                <div class="flex items-center gap-3 mt-4">
+                    <button onclick="showView('chapters-view')" class="bg-purple-600 h-11 flex-1 rounded-lg font-bold text-[12px] tracking-widest active:scale-95">READ NOW</button>
+                    <button onclick="shareStory()" class="w-11 h-11 bg-white/5 border border-white/10 rounded-lg flex items-center justify-center">🔗</button>
+                    <button onclick="toggleModal('rating-modal')" class="w-11 h-11 bg-white/5 border border-white/10 rounded-lg flex items-center justify-center text-yellow-500">★</button>
+                </div>
+
+                <!-- Recognition Section -->
+                <div class="mt-8 space-y-3">
+                    <h3 class="text-[10px] font-black text-white uppercase tracking-[0.2em] opacity-40">Special Recognition</h3>
+                    <div class="flex gap-2 overflow-x-auto pb-2 scroll-container">
+                        <div onclick="openRecognition('MINASHA')" class="recognition-card flex-shrink-0 w-[140px] cursor-pointer active:scale-95 transition-transform">
+                            <p class="text-[9px] font-black text-white">MINASHA</p>
+                            <p class="text-[7px] text-slate-500 uppercase mt-1">Lead Character</p>
+                        </div>
+                        <div onclick="openRecognition('AROSHA')" class="recognition-card flex-shrink-0 w-[140px] cursor-pointer active:scale-95 transition-transform">
+                            <p class="text-[9px] font-black text-white">AROSHA</p>
+                            <p class="text-[7px] text-slate-500 uppercase mt-1">The Hope</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Home Tabs: Top Users, Gallery -->
                 <div class="pt-6">
                     <div class="flex gap-6 border-b border-white/5 mb-4">
-                        <button onclick="setHomeTab('feed')" id="tab-feed" class="tab-btn active pb-2 text-[10px] font-black uppercase tracking-widest">Dev-Log</button>
-                        <button onclick="setHomeTab('leaderboard')" id="tab-leaderboard" class="tab-btn pb-2 text-[10px] font-black uppercase tracking-widest">Souls</button>
+                        <button onclick="setHomeTab('leaderboard')" id="tab-leaderboard" class="tab-btn active pb-2 text-[10px] font-black uppercase tracking-widest">Top Users</button>
                         <button onclick="setHomeTab('gallery')" id="tab-gallery" class="tab-btn pb-2 text-[10px] font-black uppercase tracking-widest">Gallery</button>
                     </div>
                     <div id="home-tab-content" class="min-h-[200px] space-y-4"></div>
                 </div>
 
-                <div id="active-poll" class="p-6 glass-panel rounded-2xl border border-white/5 space-y-4"></div>
+                <div id="active-poll" class="p-6 glass-panel rounded-2xl border border-white/5 space-y-4 mt-6"></div>
             </div>
         </div>
     </section>
 
-    <!-- MODALS -->
+    <!-- APP SETTINGS MODAL (10 Functional Settings) -->
+    <div id="app-settings-modal" class="fixed inset-0 z-[500] hidden bg-black/95 backdrop-blur-2xl flex items-center justify-center p-6">
+        <div class="w-full max-w-[340px] glass-panel p-6 rounded-3xl space-y-6 border border-white/10 max-h-[85vh] overflow-y-auto scroll-container">
+            <div class="flex justify-between items-center">
+                <span class="text-[10px] font-black text-white uppercase tracking-widest">System Params</span>
+                <button onclick="toggleModal('app-settings-modal')" class="text-slate-500">✕</button>
+            </div>
+            
+            <div class="space-y-4">
+                <!-- Setting 1: Particles -->
+                <div class="flex justify-between items-center">
+                    <label class="text-[9px] font-bold text-slate-400 uppercase">Particles View</label>
+                    <input type="checkbox" id="set-particles" checked onchange="appSettings.toggleParticles(this.checked)" class="w-4 h-4 accent-purple-600">
+                </div>
+                <!-- Setting 2: Haptics -->
+                <div class="flex justify-between items-center">
+                    <label class="text-[9px] font-bold text-slate-400 uppercase">Haptic Feedback</label>
+                    <input type="checkbox" id="set-haptic" checked onchange="appSettings.toggleHaptic(this.checked)" class="w-4 h-4 accent-purple-600">
+                </div>
+                <!-- Setting 3: Music Volume -->
+                <div class="space-y-1">
+                    <label class="text-[9px] font-bold text-slate-400 uppercase">Music Volume</label>
+                    <input type="range" min="0" max="1" step="0.1" value="0.5" oninput="appSettings.setVolume(this.value)" class="w-full accent-purple-600 bg-white/10 h-1 rounded-full appearance-none">
+                </div>
+                <!-- Setting 4: Brightness -->
+                <div class="space-y-1">
+                    <label class="text-[9px] font-bold text-slate-400 uppercase">Reader Brightness</label>
+                    <input type="range" min="0" max="0.8" step="0.1" value="0" oninput="appSettings.setBrightness(this.value)" class="w-full accent-purple-600 bg-white/10 h-1 rounded-full appearance-none">
+                </div>
+                <!-- Setting 5: Progress Bar -->
+                <div class="flex justify-between items-center">
+                    <label class="text-[9px] font-bold text-slate-400 uppercase">Progress Bar</label>
+                    <input type="checkbox" id="set-progress" checked onchange="appSettings.toggleProgress(this.checked)" class="w-4 h-4 accent-purple-600">
+                </div>
+                <!-- Setting 6: Image Quality -->
+                <div class="flex justify-between items-center">
+                    <label class="text-[9px] font-bold text-slate-400 uppercase">High Res Images</label>
+                    <input type="checkbox" id="set-highres" onchange="appSettings.toggleHighRes(this.checked)" class="w-4 h-4 accent-purple-600">
+                </div>
+                <!-- Setting 7: Auto Scroll (Reader) -->
+                <div class="flex justify-between items-center">
+                    <label class="text-[9px] font-bold text-slate-400 uppercase">Smooth Transitions</label>
+                    <input type="checkbox" id="set-transitions" checked onchange="appSettings.toggleTransitions(this.checked)" class="w-4 h-4 accent-purple-600">
+                </div>
+                <!-- Setting 8: Reader Theme -->
+                <div class="flex justify-between items-center">
+                    <label class="text-[9px] font-bold text-slate-400 uppercase">Sepia Mode</label>
+                    <input type="checkbox" id="set-sepia" onchange="appSettings.toggleSepia(this.checked)" class="w-4 h-4 accent-purple-600">
+                </div>
+                <!-- Setting 9: Clear Cache -->
+                <button onclick="appSettings.clearCache()" class="w-full py-2 bg-red-500/10 text-red-500 border border-red-500/20 rounded-lg text-[8px] font-black uppercase tracking-widest">Purge Local Buffers</button>
+                <!-- Setting 10: Experimental Mode -->
+                <div class="flex justify-between items-center">
+                    <label class="text-[9px] font-bold text-slate-400 uppercase">Experimental Overlays</label>
+                    <input type="checkbox" id="set-experimental" onchange="appSettings.toggleExperimental(this.checked)" class="w-4 h-4 accent-purple-600">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- USER DETAIL MODAL -->
+    <div id="user-detail-modal" class="fixed inset-0 z-[600] hidden bg-black/98 flex items-center justify-center p-6">
+        <div class="w-full max-w-[300px] glass-panel p-8 rounded-3xl text-center space-y-6 border border-white/10 relative">
+            <button onclick="toggleModal('user-detail-modal')" class="absolute top-4 right-4 text-slate-600">✕</button>
+            <div id="user-detail-content" class="space-y-4">
+                <!-- Loaded via JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- GALLERY LIGHTBOX -->
+    <div id="gallery-lightbox" class="fixed inset-0 z-[700] hidden bg-black/99 flex items-center justify-center p-4" onclick="toggleModal('gallery-lightbox')">
+        <img id="lightbox-img" src="" class="max-w-full max-h-full rounded-lg shadow-2xl object-contain">
+    </div>
+
+    <!-- PROFILE SETTINGS (Original, kept but separated) -->
     <div id="settings-modal" class="fixed inset-0 z-[200] hidden bg-black/95 flex items-center justify-center p-6">
         <div class="w-full max-w-[320px] glass-panel p-6 rounded-2xl space-y-5 border border-white/10 scroll-container overflow-y-auto max-h-[90vh]">
-            <div class="flex justify-between items-center"><span class="text-[10px] font-black text-white uppercase">Vessel Protocol</span><button onclick="toggleModal('settings-modal')" class="text-slate-500">✕</button></div>
+            <div class="flex justify-between items-center"><span class="text-[10px] font-black text-white uppercase">Profile Control</span><button onclick="toggleModal('settings-modal')" class="text-slate-500">✕</button></div>
             <div class="flex flex-col items-center gap-2">
                 <div id="aura-container" class="rounded-full p-1"><img id="settings-avatar" src="" class="w-16 h-16 rounded-full object-cover"></div>
                 <div class="text-center">
@@ -128,11 +255,12 @@
                 <div><p class="text-[7px] text-slate-500 uppercase font-black">Streak</p><p id="stat-streak" class="text-xs font-bold">0d</p></div>
             </div>
             <div class="space-y-3">
-                <input id="profile-edit-name" type="text" class="settings-input" placeholder="Name">
-                <textarea id="profile-edit-bio" rows="2" class="settings-input resize-none" placeholder="Bio"></textarea>
+                <input id="profile-edit-name" type="text" class="settings-input" placeholder="Display Name">
+                <input id="profile-edit-age" type="number" class="settings-input" placeholder="Age">
+                <textarea id="profile-edit-bio" rows="2" class="settings-input resize-none" placeholder="Short Bio"></textarea>
                 <div class="flex gap-2">
                     <input id="social-discord" type="text" class="settings-input" placeholder="Discord">
-                    <input id="social-insta" type="text" class="settings-input" placeholder="Insta">
+                    <input id="social-insta" type="text" class="settings-input" placeholder="Instagram">
                 </div>
                 <button onclick="updateProfile()" class="w-full bg-purple-600 py-2 rounded-lg font-bold text-[10px] uppercase text-white">SAVE ECHO</button>
             </div>
@@ -140,6 +268,22 @@
         </div>
     </div>
 
+    <!-- COMMENTS MODAL -->
+    <div id="chapter-comments-modal" class="fixed inset-0 z-[400] hidden bg-black/95 flex items-center justify-center p-6">
+        <div class="w-full max-w-[400px] h-[80vh] glass-panel p-6 rounded-3xl flex flex-col border border-white/10">
+            <div class="flex justify-between items-center mb-4">
+                <h3 id="comment-modal-title" class="text-[10px] font-black text-white uppercase tracking-widest">Log Comments</h3>
+                <button onclick="toggleModal('chapter-comments-modal')" class="text-slate-500">✕</button>
+            </div>
+            <div id="chapter-comments-list" class="flex-1 overflow-y-auto space-y-4 mb-4 scroll-container"></div>
+            <div class="flex gap-2">
+                <input id="chapter-comment-input" type="text" placeholder="Add an echo..." class="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-[11px] text-white outline-none">
+                <button onclick="submitChapterComment()" class="bg-purple-600 px-4 rounded-xl text-[10px] font-black uppercase">Post</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- REMAINING VIEWS (ACHIEVEMENTS, CHAPTERS, READERS, READER, RECOGNITION) -->
     <div id="achievements-modal" class="fixed inset-0 z-[200] hidden bg-black/95 flex items-center justify-center p-6">
         <div class="w-full max-w-sm glass-panel p-6 rounded-2xl space-y-4 border border-yellow-500/20">
             <h3 class="font-black text-xs text-yellow-500 uppercase tracking-widest">Achieved Echoes</h3>
@@ -148,7 +292,6 @@
         </div>
     </div>
 
-    <!-- CHAPTERS -->
     <section id="chapters-view" class="view hidden bg-transparent pt-14 flex flex-col">
         <div class="px-6 py-4 space-y-3 border-b border-white/5">
             <input id="chapter-search" type="text" oninput="loadChapters()" placeholder="Search logs..." class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-[10px] text-white outline-none">
@@ -161,24 +304,44 @@
         <div id="chapters-list-mobile" class="flex-1 overflow-y-auto p-4 space-y-4 pb-32 scroll-container"></div>
     </section>
 
-    <!-- READERS -->
     <section id="readers-view" class="view hidden bg-transparent pt-14 flex flex-col">
         <div id="readers-list" class="flex-1 overflow-y-auto px-4 space-y-3 pt-4 pb-32 scroll-container"></div>
     </section>
 
-    <!-- READER -->
     <section id="reader-view" class="view hidden bg-black flex flex-col overflow-y-auto scroll-container">
         <div id="reader-progress-bar" class="fixed top-0 left-0 h-1 bg-purple-600 w-0 z-[200]"></div>
-        <div class="fixed top-4 right-4 z-[200] flex gap-2">
-            <button onclick="toggleMusic()" id="music-btn" class="w-10 h-10 bg-black/50 backdrop-blur rounded-full flex items-center justify-center text-xs">🔇</button>
-            <button onclick="toggleBookmark()" id="bookmark-btn" class="w-10 h-10 bg-black/50 backdrop-blur rounded-full flex items-center justify-center text-xs">🔖</button>
-        </div>
-        <div id="reader-pages" class="w-full max-w-3xl mx-auto relative"></div>
+        <div id="reader-pages" class="w-full max-w-3xl mx-auto relative pt-16"></div>
         <div class="p-20 text-center safe-bottom">
             <h3 class="bold-italic text-xl text-white opacity-40 uppercase">END OF RECORD</h3>
             <button onclick="goBack()" class="mt-8 px-8 py-3 border border-purple-500/30 rounded-full font-bold text-[10px] text-purple-400 uppercase">EXIT</button>
         </div>
     </section>
+
+    <!-- RECOGNITION -->
+    <div id="recognition-modal" class="fixed inset-0 z-[250] hidden bg-black/98 flex items-center justify-center p-8">
+        <div class="w-full max-w-[280px] glass-panel p-8 rounded-2xl text-center space-y-4 border border-purple-500/20">
+            <div id="recognition-icon-box" class="text-3xl">❤️</div>
+            <h3 id="recognition-name" class="font-bold text-sm text-white tracking-widest uppercase">NAME</h3>
+            <p id="recognition-text" class="text-[10px] text-slate-400 leading-relaxed font-medium">Loading wisdom...</p>
+            <button onclick="toggleModal('recognition-modal')" class="w-full py-2.5 bg-purple-600 rounded-lg text-[9px] font-bold text-white uppercase tracking-widest">CLOSE</button>
+        </div>
+    </div>
+
+    <!-- RATING MODAL -->
+    <div id="rating-modal" class="fixed inset-0 z-[200] hidden bg-black/95 flex items-center justify-center p-6">
+        <div class="w-full max-w-[300px] glass-panel p-8 rounded-2xl text-center space-y-6 border border-white/10">
+            <h3 class="font-bold text-xs text-white uppercase tracking-widest">Rate the Story</h3>
+            <div id="star-container" class="flex justify-center py-2 text-2xl gap-2">
+                <span onclick="setRating(1)" class="star cursor-pointer opacity-30">★</span>
+                <span onclick="setRating(2)" class="star cursor-pointer opacity-30">★</span>
+                <span onclick="setRating(3)" class="star cursor-pointer opacity-30">★</span>
+                <span onclick="setRating(4)" class="star cursor-pointer opacity-30">★</span>
+                <span onclick="setRating(5)" class="star cursor-pointer opacity-30">★</span>
+            </div>
+            <button onclick="submitRating()" class="w-full py-3 bg-purple-600 rounded-lg font-bold text-[10px] uppercase tracking-widest">SUBMIT</button>
+            <button onclick="toggleModal('rating-modal')" class="text-slate-600 text-[9px] font-bold uppercase">CANCEL</button>
+        </div>
+    </div>
 
     <script src="index.js" type="module"></script>
 </body>
