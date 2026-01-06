@@ -5,6 +5,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>A FALSE HOPE | Reader</title>
+    <!-- PWA Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#020617">
+    
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,700;0,900;1,900&display=swap" rel="stylesheet">
@@ -31,14 +36,17 @@
         .scroll-container::-webkit-scrollbar-thumb { background: rgba(168, 85, 247, 0.3); border-radius: 10px; }
         .aura-effect { box-shadow: 0 0 15px var(--aura-color); }
         .settings-input { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 8px 12px; font-size: 12px; color: white; width: 100%; outline: none; }
+        .tab-btn { transition: 0.3s; color: rgba(255,255,255,0.3); }
         .tab-btn.active { border-bottom: 2px solid var(--aura-color); color: white; }
+        .expandable-content { max-height: 0; overflow: hidden; transition: max-height 0.4s ease-out; }
+        .expanded .expandable-content { max-height: 400px; }
     </style>
 </head>
 <body class="bg-[#020617]">
     <canvas id="particle-canvas"></canvas>
     <audio id="ambient-audio" loop src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"></audio>
 
-    <!-- TOP BAR -->
+    <!-- NAVIGATION -->
     <nav id="app-nav" class="fixed top-0 left-0 right-0 z-[100] hidden safe-top glass-panel">
         <div class="max-w-4xl mx-auto px-4 py-2 flex items-center justify-between">
             <div class="flex items-center gap-2 flex-1 min-w-0 pr-4">
@@ -63,7 +71,7 @@
         </div>
     </nav>
 
-    <!-- LOADING & LOGIN (Same as before but with minor UI polish) -->
+    <!-- VIEWS -->
     <section id="loading-view" class="view flex flex-col items-center justify-center bg-black">
         <div class="bold-italic text-4xl text-white opacity-60 animate-pulse">A FALSE HOPE</div>
         <p id="streak-msg" class="text-[9px] mt-2 opacity-30 tracking-[0.6em] uppercase">Synchronizing Souls</p>
@@ -76,7 +84,7 @@
         </div>
     </section>
 
-    <!-- HOME VIEW: Enhanced with Feed, Poll, Leaderboard -->
+    <!-- HOME -->
     <section id="home-view" class="view hidden bg-transparent overflow-y-auto pt-0 pb-32 scroll-container">
         <div class="hero-wrapper">
             <div class="hero-image-container"><img src="https://i.ibb.co/0jNjDF8k/Cover2.png" class="hero-image"><div class="hero-black-fade"></div></div>
@@ -86,27 +94,25 @@
                 <p class="text-[12px] text-slate-400 leading-relaxed font-medium">The official portal to the Sanctum. Survive the hope.</p>
                 <div class="flex items-center gap-3">
                     <button onclick="showView('chapters-view')" class="bg-purple-600 h-11 flex-1 rounded-lg font-bold text-[12px] tracking-widest active:scale-95">READ NOW</button>
-                    <button onclick="shareStory()" class="btn-action w-11 h-11 flex items-center justify-center">🔗</button>
-                    <button onclick="toggleModal('rating-modal')" class="btn-action w-11 h-11 flex items-center justify-center text-yellow-500">★</button>
+                    <button onclick="shareStory()" class="btn-action w-11 h-11 bg-white/5 border border-white/10 rounded-lg flex items-center justify-center">🔗</button>
+                    <button onclick="toggleModal('rating-modal')" class="btn-action w-11 h-11 bg-white/5 border border-white/10 rounded-lg flex items-center justify-center text-yellow-500">★</button>
                 </div>
                 
-                <!-- Home Tabs: Feed, Leaderboard, Gallery -->
                 <div class="pt-6">
                     <div class="flex gap-6 border-b border-white/5 mb-4">
-                        <button onclick="setHomeTab('feed')" class="tab-btn active pb-2 text-[10px] font-black uppercase tracking-widest">Dev-Log</button>
-                        <button onclick="setHomeTab('leaderboard')" class="tab-btn pb-2 text-[10px] font-black uppercase tracking-widest">Souls</button>
-                        <button onclick="setHomeTab('gallery')" class="tab-btn pb-2 text-[10px] font-black uppercase tracking-widest">Gallery</button>
+                        <button onclick="setHomeTab('feed')" id="tab-feed" class="tab-btn active pb-2 text-[10px] font-black uppercase tracking-widest">Dev-Log</button>
+                        <button onclick="setHomeTab('leaderboard')" id="tab-leaderboard" class="tab-btn pb-2 text-[10px] font-black uppercase tracking-widest">Souls</button>
+                        <button onclick="setHomeTab('gallery')" id="tab-gallery" class="tab-btn pb-2 text-[10px] font-black uppercase tracking-widest">Gallery</button>
                     </div>
-                    <div id="home-tab-content" class="min-h-[200px]"></div>
+                    <div id="home-tab-content" class="min-h-[200px] space-y-4"></div>
                 </div>
 
-                <!-- Community Poll -->
                 <div id="active-poll" class="p-6 glass-panel rounded-2xl border border-white/5 space-y-4"></div>
             </div>
         </div>
     </section>
 
-    <!-- SETTINGS: Redesigned with Stats & Titles -->
+    <!-- MODALS -->
     <div id="settings-modal" class="fixed inset-0 z-[200] hidden bg-black/95 flex items-center justify-center p-6">
         <div class="w-full max-w-[320px] glass-panel p-6 rounded-2xl space-y-5 border border-white/10 scroll-container overflow-y-auto max-h-[90vh]">
             <div class="flex justify-between items-center"><span class="text-[10px] font-black text-white uppercase">Vessel Protocol</span><button onclick="toggleModal('settings-modal')" class="text-slate-500">✕</button></div>
@@ -134,7 +140,6 @@
         </div>
     </div>
 
-    <!-- ACHIEVEMENTS MODAL -->
     <div id="achievements-modal" class="fixed inset-0 z-[200] hidden bg-black/95 flex items-center justify-center p-6">
         <div class="w-full max-w-sm glass-panel p-6 rounded-2xl space-y-4 border border-yellow-500/20">
             <h3 class="font-black text-xs text-yellow-500 uppercase tracking-widest">Achieved Echoes</h3>
@@ -143,7 +148,7 @@
         </div>
     </div>
 
-    <!-- CHAPTERS: With Search & Sort -->
+    <!-- CHAPTERS -->
     <section id="chapters-view" class="view hidden bg-transparent pt-14 flex flex-col">
         <div class="px-6 py-4 space-y-3 border-b border-white/5">
             <input id="chapter-search" type="text" oninput="loadChapters()" placeholder="Search logs..." class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-[10px] text-white outline-none">
@@ -156,7 +161,12 @@
         <div id="chapters-list-mobile" class="flex-1 overflow-y-auto p-4 space-y-4 pb-32 scroll-container"></div>
     </section>
 
-    <!-- READER: Progress, Music, Timed Comments -->
+    <!-- READERS -->
+    <section id="readers-view" class="view hidden bg-transparent pt-14 flex flex-col">
+        <div id="readers-list" class="flex-1 overflow-y-auto px-4 space-y-3 pt-4 pb-32 scroll-container"></div>
+    </section>
+
+    <!-- READER -->
     <section id="reader-view" class="view hidden bg-black flex flex-col overflow-y-auto scroll-container">
         <div id="reader-progress-bar" class="fixed top-0 left-0 h-1 bg-purple-600 w-0 z-[200]"></div>
         <div class="fixed top-4 right-4 z-[200] flex gap-2">
@@ -168,11 +178,6 @@
             <h3 class="bold-italic text-xl text-white opacity-40 uppercase">END OF RECORD</h3>
             <button onclick="goBack()" class="mt-8 px-8 py-3 border border-purple-500/30 rounded-full font-bold text-[10px] text-purple-400 uppercase">EXIT</button>
         </div>
-    </section>
-
-    <!-- Same Modals as before: Rating, Readers, Recognition, Admin -->
-    <section id="readers-view" class="view hidden bg-transparent pt-14 flex flex-col">
-        <div id="readers-list" class="flex-1 overflow-y-auto px-4 space-y-3 pt-4 pb-32 scroll-container"></div>
     </section>
 
     <script src="index.js" type="module"></script>
