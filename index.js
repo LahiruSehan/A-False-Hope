@@ -253,7 +253,7 @@ window.submitChapterComment = async () => {
 };
 
 window.likeChapterAction = async () => {
-    v(40);
+    v(60);
     const { error } = await supabase.from('chapter_likes').insert({ chapter_id: currentChapterId, user_id: currentUser.id });
     if(!error) alert("Sanctified.");
 };

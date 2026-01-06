@@ -18,7 +18,7 @@
         #particle-canvas { position: fixed; inset: 0; z-index: -1; pointer-events: none; transition: opacity 0.5s; }
         
         /* Fixed views that are actually scrollable */
-        .view { min-height: 100vh; width: 100vw; position: absolute; inset: 0; z-index: 10; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+        .view { height: 100vh; width: 100vw; position: fixed; inset: 0; z-index: 10; overflow-y: auto; -webkit-overflow-scrolling: touch; }
         .hidden { display: none !important; }
         
         .glass-panel { background: rgba(10, 15, 30, 0.85); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255,255,255,0.05); }
@@ -64,6 +64,10 @@
         /* Chat Expand Animation */
         .expandable-content { max-height: 0; overflow: hidden; transition: max-height 0.4s ease-out; }
         .expanded .expandable-content { max-height: 500px; }
+        
+        /* Ensure Reader Scrolling */
+        #reader-view { overflow-y: scroll !important; -webkit-overflow-scrolling: touch; }
+        #reader-pages { padding-bottom: 50px; }
     </style>
 </head>
 <body class="bg-[#020617]">
@@ -98,9 +102,9 @@
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
                 </button>
                 
-                <!-- Bolder Reader Buttons -->
-                <button id="reader-like-btn" onclick="likeChapterAction()" class="p-3 text-red-500 hidden scale-125">♥</button>
-                <button id="reader-comment-btn" onclick="openChapterComments()" class="p-3 text-slate-200 hidden scale-125">
+                <!-- Larger Reader Buttons -->
+                <button id="reader-like-btn" onclick="likeChapterAction()" class="p-3 text-red-500 hidden scale-150 transition-transform active:scale-125">♥</button>
+                <button id="reader-comment-btn" onclick="openChapterComments()" class="p-3 text-slate-200 hidden scale-150 transition-transform active:scale-125">
                     <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
                 </button>
 
@@ -198,7 +202,7 @@
         <div id="readers-list" class="p-4 space-y-3 pb-32"></div>
     </section>
 
-    <!-- MODALS -->
+    <!-- APP SETTINGS MODAL -->
     <div id="app-settings-modal" class="fixed inset-0 z-[500] hidden bg-black/95 backdrop-blur-3xl flex items-center justify-center p-6">
         <div class="w-full max-w-[340px] glass-panel p-6 rounded-3xl space-y-6 border border-white/10 max-h-[85vh] overflow-y-auto">
             <div class="flex justify-between items-center"><span class="text-[10px] font-black text-white uppercase tracking-widest">System Protocols</span><button onclick="toggleModal('app-settings-modal')" class="text-slate-500">✕</button></div>
@@ -217,6 +221,7 @@
         </div>
     </div>
 
+    <!-- MODALS -->
     <div id="user-detail-modal" class="fixed inset-0 z-[600] hidden bg-black/98 flex items-center justify-center p-6">
         <div class="w-full max-w-[300px] glass-panel p-8 rounded-3xl text-center space-y-6 border border-white/10 relative">
             <button onclick="toggleModal('user-detail-modal')" class="absolute top-4 right-4 text-slate-600">✕</button>
