@@ -3,7 +3,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>A FALSE HOPE | Reader</title>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -14,10 +14,13 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,700;0,900;1,900&display=swap" rel="stylesheet">
     <style>
         :root { --aura-color: #a855f7; --void-black: #020617; }
-        body { font-family: 'Inter', sans-serif; background: var(--void-black); color: #f8fafc; overflow: hidden; -webkit-tap-highlight-color: transparent; }
+        body { font-family: 'Inter', sans-serif; background: var(--void-black); color: #f8fafc; -webkit-tap-highlight-color: transparent; }
         #particle-canvas { position: fixed; inset: 0; z-index: -1; pointer-events: none; transition: opacity 0.5s; }
-        .view { height: 100vh; width: 100vw; overflow: hidden; position: fixed; inset: 0; z-index: 10; transition: transform var(--transition-speed, 0.3s) ease; }
+        
+        /* Fixed views that are actually scrollable */
+        .view { min-height: 100vh; width: 100vw; position: absolute; inset: 0; z-index: 10; overflow-y: auto; -webkit-overflow-scrolling: touch; }
         .hidden { display: none !important; }
+        
         .glass-panel { background: rgba(10, 15, 30, 0.85); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255,255,255,0.05); }
         .bold-italic { font-weight: 900; font-style: italic; letter-spacing: -0.04em; }
         
@@ -44,20 +47,23 @@
         .tab-btn { transition: 0.3s; color: rgba(255,255,255,0.3); }
         .tab-btn.active { border-bottom: 2px solid var(--aura-color); color: white; }
 
-        .zoom-container { overflow: hidden; position: relative; touch-action: pinch-zoom; }
+        .zoom-container { overflow: hidden; position: relative; }
         .manga-page { transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); cursor: zoom-in; width: 100%; display: block; }
         .manga-page.zoomed { transform: scale(2.2); cursor: zoom-out; z-index: 50; position: relative; }
 
         #brightness-overlay { position: fixed; inset: 0; background: black; pointer-events: none; z-index: 2000; opacity: 0; transition: opacity 0.3s; }
         .recognition-card { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 12px; }
         
-        /* App Setting Toggle styles */
         .toggle-switch { position: relative; display: inline-block; width: 34px; height: 18px; }
         .toggle-switch input { opacity: 0; width: 0; height: 0; }
         .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(255,255,255,0.1); transition: .4s; border-radius: 34px; }
         .slider:before { position: absolute; content: ""; height: 12px; width: 12px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
         input:checked + .slider { background-color: #a855f7; }
         input:checked + .slider:before { transform: translateX(16px); }
+
+        /* Chat Expand Animation */
+        .expandable-content { max-height: 0; overflow: hidden; transition: max-height 0.4s ease-out; }
+        .expanded .expandable-content { max-height: 500px; }
     </style>
 </head>
 <body class="bg-[#020617]">
@@ -70,31 +76,36 @@
         <div class="max-w-4xl mx-auto px-4 py-2 flex items-center justify-between h-14">
             <div id="nav-left" class="flex items-center gap-2 flex-1 min-w-0">
                 <button id="master-back-btn" onclick="goBack()" class="p-1.5 hover:bg-white/5 rounded-full hidden flex-shrink-0">
-                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="3" d="M15 19l-7-7 7-7"></path></svg>
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="3" d="M15 19l-7-7 7-7"></path></svg>
                 </button>
                 <div id="nav-profile-block" class="flex items-center gap-2 cursor-pointer overflow-hidden flex-1" onclick="toggleModal('settings-modal')">
-                    <img id="nav-user-avatar" src="" class="w-8 h-8 rounded-full border border-white/10 object-cover flex-shrink-0">
+                    <img id="nav-user-avatar" src="" class="w-9 h-9 rounded-full border border-white/10 object-cover flex-shrink-0">
                     <div class="flex flex-col min-w-0">
-                        <p id="nav-user-name" class="text-[10px] font-black text-white uppercase truncate tracking-tight">USER</p>
-                        <span id="nav-user-lvl" class="text-[8px] font-bold text-purple-400">LVL 1</span>
+                        <p id="nav-user-name" class="text-[11px] font-black text-white uppercase truncate tracking-tight">USER</p>
+                        <span id="nav-user-lvl" class="text-[9px] font-bold text-purple-400">LVL 1</span>
                     </div>
                 </div>
                 <div id="reader-nav-info" class="hidden flex-1 min-w-0 px-2">
-                    <div class="h-1 bg-white/10 rounded-full w-full max-w-[140px] overflow-hidden">
+                    <div class="h-1.5 bg-white/10 rounded-full w-full max-w-[140px] overflow-hidden">
                         <div id="reader-mini-progress" class="h-full bg-purple-500 w-0 transition-all duration-300"></div>
                     </div>
                 </div>
             </div>
 
-            <div id="nav-right" class="flex items-center gap-1">
-                <button id="trophy-btn" onclick="toggleModal('achievements-modal')" class="p-2 text-yellow-500">🏆</button>
+            <div id="nav-right" class="flex items-center gap-2">
+                <button id="trophy-btn" onclick="toggleModal('achievements-modal')" class="p-2 text-yellow-500 text-xl">🏆</button>
                 <button id="messages-btn" onclick="showView('readers-view')" class="p-2 text-slate-400">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
                 </button>
-                <button id="reader-like-btn" onclick="likeChapterAction()" class="p-2 text-white hidden">♥</button>
-                <button id="reader-comment-btn" onclick="openChapterComments()" class="p-2 text-slate-400 hidden">💬</button>
+                
+                <!-- Bolder Reader Buttons -->
+                <button id="reader-like-btn" onclick="likeChapterAction()" class="p-3 text-red-500 hidden scale-125">♥</button>
+                <button id="reader-comment-btn" onclick="openChapterComments()" class="p-3 text-slate-200 hidden scale-125">
+                    <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+                </button>
+
                 <button onclick="toggleModal('app-settings-modal')" class="p-2 text-slate-400 rotating-gear">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
                     </svg>
                 </button>
@@ -116,7 +127,7 @@
     </section>
 
     <!-- HOME -->
-    <section id="home-view" class="view hidden bg-transparent overflow-y-auto pt-0 pb-32 scroll-container">
+    <section id="home-view" class="view hidden bg-transparent pt-0 pb-32">
         <div class="hero-wrapper">
             <div class="hero-image-container"><img src="https://i.ibb.co/0jNjDF8k/Cover2.png" class="hero-image"><div class="hero-black-fade"></div></div>
             <div class="px-6 -mt-10 relative z-10">
@@ -151,7 +162,7 @@
                         <button onclick="setHomeTab('leaderboard')" id="tab-leaderboard" class="tab-btn active pb-2 text-[10px] font-black uppercase tracking-widest">Top Users</button>
                         <button onclick="setHomeTab('gallery')" id="tab-gallery" class="tab-btn pb-2 text-[10px] font-black uppercase tracking-widest">Gallery</button>
                     </div>
-                    <div id="home-tab-content" class="min-h-[200px] space-y-4"></div>
+                    <div id="home-tab-content" class="min-h-[200px] space-y-4 pb-10"></div>
                 </div>
 
                 <div id="active-poll" class="p-6 glass-panel rounded-2xl border border-white/5 space-y-4 mt-6"></div>
@@ -159,9 +170,37 @@
         </div>
     </section>
 
-    <!-- APP SETTINGS -->
+    <!-- READER -->
+    <section id="reader-view" class="view hidden bg-black">
+        <div id="reader-progress-bar" class="fixed top-0 left-0 h-1.5 bg-purple-600 w-0 z-[200]"></div>
+        <div id="reader-pages" class="w-full max-w-3xl mx-auto relative pt-16"></div>
+        <div class="p-20 text-center pb-40">
+            <h3 class="bold-italic text-xl text-white opacity-40 uppercase">END OF RECORD</h3>
+            <button onclick="goBack()" class="mt-8 px-10 py-4 border-2 border-purple-500/40 rounded-full font-black text-[11px] text-purple-400 uppercase tracking-widest">EXIT TO SANCTUM</button>
+        </div>
+    </section>
+
+    <!-- CHAPTERS -->
+    <section id="chapters-view" class="view hidden bg-transparent pt-14">
+        <div class="px-6 py-4 space-y-3 border-b border-white/5 sticky top-0 bg-[#020617] z-20">
+            <input id="chapter-search" type="text" oninput="loadChapters()" placeholder="Search logs..." class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-[10px] text-white outline-none">
+            <div class="flex gap-4">
+                <button onclick="setChapterSort('new')" id="sort-new" class="text-[8px] font-black uppercase text-purple-400">Latest</button>
+                <button onclick="setChapterSort('old')" id="sort-old" class="text-[8px] font-black uppercase text-slate-500">Oldest</button>
+                <button onclick="setChapterSort('top')" id="sort-top" class="text-[8px] font-black uppercase text-slate-500">Popular</button>
+            </div>
+        </div>
+        <div id="chapters-list-mobile" class="p-4 space-y-4 pb-32"></div>
+    </section>
+
+    <!-- READERS / MESSAGES VIEW -->
+    <section id="readers-view" class="view hidden bg-transparent pt-14">
+        <div id="readers-list" class="p-4 space-y-3 pb-32"></div>
+    </section>
+
+    <!-- MODALS -->
     <div id="app-settings-modal" class="fixed inset-0 z-[500] hidden bg-black/95 backdrop-blur-3xl flex items-center justify-center p-6">
-        <div class="w-full max-w-[340px] glass-panel p-6 rounded-3xl space-y-6 border border-white/10 max-h-[85vh] overflow-y-auto scroll-container">
+        <div class="w-full max-w-[340px] glass-panel p-6 rounded-3xl space-y-6 border border-white/10 max-h-[85vh] overflow-y-auto">
             <div class="flex justify-between items-center"><span class="text-[10px] font-black text-white uppercase tracking-widest">System Protocols</span><button onclick="toggleModal('app-settings-modal')" class="text-slate-500">✕</button></div>
             <div class="space-y-4">
                 <div class="flex justify-between items-center"><label class="text-[9px] font-bold text-slate-400 uppercase">Particles View</label><label class="toggle-switch"><input type="checkbox" id="set-particles" checked onchange="appSettings.toggleParticles(this.checked)"><span class="slider"></span></label></div>
@@ -178,7 +217,6 @@
         </div>
     </div>
 
-    <!-- OTHER MODALS -->
     <div id="user-detail-modal" class="fixed inset-0 z-[600] hidden bg-black/98 flex items-center justify-center p-6">
         <div class="w-full max-w-[300px] glass-panel p-8 rounded-3xl text-center space-y-6 border border-white/10 relative">
             <button onclick="toggleModal('user-detail-modal')" class="absolute top-4 right-4 text-slate-600">✕</button>
@@ -198,19 +236,17 @@
         </div>
     </div>
 
-    <section id="reader-view" class="view hidden bg-black flex flex-col overflow-y-auto scroll-container">
-        <div id="reader-progress-bar" class="fixed top-0 left-0 h-1 bg-purple-600 w-0 z-[200]"></div>
-        <div id="reader-pages" class="w-full max-w-3xl mx-auto relative pt-16"></div>
-        <div class="p-20 text-center safe-bottom"><h3 class="bold-italic text-xl text-white opacity-40 uppercase">END OF RECORD</h3><button onclick="goBack()" class="mt-8 px-8 py-3 border border-purple-500/30 rounded-full font-bold text-[10px] text-purple-400 uppercase">EXIT</button></div>
-    </section>
-
-    <!-- Remainder of sections: chapters-view, readers-view, achievements-modal, settings-modal, recognition-modal, rating-modal -->
     <div id="achievements-modal" class="fixed inset-0 z-[200] hidden bg-black/95 flex items-center justify-center p-6"><div class="w-full max-w-sm glass-panel p-6 rounded-2xl space-y-4 border border-yellow-500/20"><h3 class="font-black text-xs text-yellow-500 uppercase tracking-widest">Achieved Echoes</h3><div id="achievements-list" class="space-y-3 max-h-[300px] overflow-y-auto scroll-container"></div><button onclick="toggleModal('achievements-modal')" class="w-full py-2 bg-white/5 rounded-lg text-[9px] font-bold text-white/40">CLOSE</button></div></div>
-    <section id="chapters-view" class="view hidden bg-transparent pt-14 flex flex-col"><div class="px-6 py-4 space-y-3 border-b border-white/5"><input id="chapter-search" type="text" oninput="loadChapters()" placeholder="Search logs..." class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-[10px] text-white outline-none"><div class="flex gap-4"><button onclick="setChapterSort('new')" id="sort-new" class="text-[8px] font-black uppercase text-purple-400">Latest</button><button onclick="setChapterSort('old')" id="sort-old" class="text-[8px] font-black uppercase text-slate-500">Oldest</button><button onclick="setChapterSort('top')" id="sort-top" class="text-[8px] font-black uppercase text-slate-500">Popular</button></div></div><div id="chapters-list-mobile" class="flex-1 overflow-y-auto p-4 space-y-4 pb-32 scroll-container"></div></section>
-    <section id="readers-view" class="view hidden bg-transparent pt-14 flex flex-col"><div id="readers-list" class="flex-1 overflow-y-auto px-4 space-y-3 pt-4 pb-32 scroll-container"></div></section>
-    <div id="settings-modal" class="fixed inset-0 z-[200] hidden bg-black/95 flex items-center justify-center p-6"><div class="w-full max-w-[320px] glass-panel p-6 rounded-2xl space-y-5 border border-white/10 scroll-container overflow-y-auto max-h-[90vh]"><div class="flex justify-between items-center"><span class="text-[10px] font-black text-white uppercase">Profile Control</span><button onclick="toggleModal('settings-modal')" class="text-slate-500">✕</button></div><div class="flex flex-col items-center gap-2"><div id="aura-container" class="rounded-full p-1"><img id="settings-avatar" src="" class="w-16 h-16 rounded-full object-cover"></div><div class="text-center"><p id="settings-title-label" class="text-[8px] text-purple-400 font-black uppercase tracking-widest mb-1">DRIFTER</p><p id="settings-user-name" class="text-xs font-black text-white uppercase truncate">NAME</p></div></div><div class="grid grid-cols-2 gap-2 text-center py-2 border-y border-white/5"><div><p class="text-[7px] text-slate-500 uppercase font-black">Pages</p><p id="stat-pages" class="text-xs font-bold">0</p></div><div><p class="text-[7px] text-slate-500 uppercase font-black">Streak</p><p id="stat-streak" class="text-xs font-bold">0d</p></div></div><div class="space-y-3"><input id="profile-edit-name" type="text" class="settings-input" placeholder="Display Name"><input id="profile-edit-age" type="number" class="settings-input" placeholder="Age"><textarea id="profile-edit-bio" rows="2" class="settings-input resize-none" placeholder="Short Bio"></textarea><div class="flex gap-2"><input id="social-discord" type="text" class="settings-input" placeholder="Discord"><input id="social-insta" type="text" class="settings-input" placeholder="Instagram"></div><button onclick="updateProfile()" class="w-full bg-purple-600 py-2 rounded-lg font-bold text-[10px] uppercase text-white">SAVE ECHO</button></div><button onclick="supabase.auth.signOut().then(() => location.reload())" class="w-full text-red-500/50 font-bold text-[8px] uppercase">TERMINATE SESSION</button></div></div>
-    <div id="recognition-modal" class="fixed inset-0 z-[250] hidden bg-black/98 flex items-center justify-center p-8"><div class="w-full max-w-[280px] glass-panel p-8 rounded-2xl text-center space-y-4 border border-purple-500/20"><div id="recognition-icon-box" class="text-3xl">❤️</div><h3 id="recognition-name" class="font-bold text-sm text-white tracking-widest uppercase">NAME</h3><p id="recognition-text" class="text-[10px] text-slate-400 leading-relaxed font-medium">Loading wisdom...</p><button onclick="toggleModal('recognition-modal')" class="w-full py-2.5 bg-purple-600 rounded-lg text-[9px] font-bold text-white uppercase tracking-widest">CLOSE</button></div></div>
-    <div id="rating-modal" class="fixed inset-0 z-[200] hidden bg-black/95 flex items-center justify-center p-6"><div class="w-full max-w-[300px] glass-panel p-8 rounded-2xl text-center space-y-6 border border-white/10"><h3 class="font-bold text-xs text-white uppercase tracking-widest">Rate the Story</h3><div id="star-container" class="flex justify-center py-2 text-2xl gap-2"><span onclick="setRating(1)" class="star cursor-pointer opacity-30">★</span><span onclick="setRating(2)" class="star cursor-pointer opacity-30">★</span><span onclick="setRating(3)" class="star cursor-pointer opacity-30">★</span><span onclick="setRating(4)" class="star cursor-pointer opacity-30">★</span><span onclick="setRating(5)" class="star cursor-pointer opacity-30">★</span></div><button onclick="submitRating()" class="w-full py-3 bg-purple-600 rounded-lg font-bold text-[10px] uppercase tracking-widest">SUBMIT</button><button onclick="toggleModal('rating-modal')" class="text-slate-600 text-[9px] font-bold uppercase">CANCEL</button></div></div>
+    
+    <div id="settings-modal" class="fixed inset-0 z-[200] hidden bg-black/95 flex items-center justify-center p-6">
+        <div class="w-full max-w-[320px] glass-panel p-6 rounded-2xl space-y-5 border border-white/10 overflow-y-auto max-h-[90vh]">
+            <div class="flex justify-between items-center"><span class="text-[10px] font-black text-white uppercase">Profile Control</span><button onclick="toggleModal('settings-modal')" class="text-slate-500">✕</button></div>
+            <div class="flex flex-col items-center gap-2"><div id="aura-container" class="rounded-full p-1"><img id="settings-avatar" src="" class="w-16 h-16 rounded-full object-cover"></div><div class="text-center"><p id="settings-title-label" class="text-[8px] text-purple-400 font-black uppercase tracking-widest mb-1">DRIFTER</p><p id="settings-user-name" class="text-xs font-black text-white uppercase truncate">NAME</p></div></div>
+            <div class="grid grid-cols-2 gap-2 text-center py-2 border-y border-white/5"><div><p class="text-[7px] text-slate-500 uppercase font-black">Pages</p><p id="stat-pages" class="text-xs font-bold">0</p></div><div><p class="text-[7px] text-slate-500 uppercase font-black">Streak</p><p id="stat-streak" class="text-xs font-bold">0d</p></div></div>
+            <div class="space-y-3"><input id="profile-edit-name" type="text" class="bg-white/5 border border-white/10 rounded-lg p-2 w-full text-xs text-white" placeholder="Display Name"><input id="profile-edit-age" type="number" class="bg-white/5 border border-white/10 rounded-lg p-2 w-full text-xs text-white" placeholder="Age"><textarea id="profile-edit-bio" rows="2" class="bg-white/5 border border-white/10 rounded-lg p-2 w-full text-xs text-white resize-none" placeholder="Short Bio"></textarea><button onclick="updateProfile()" class="w-full bg-purple-600 py-2 rounded-lg font-bold text-[10px] uppercase text-white">SAVE ECHO</button></div>
+            <button onclick="supabase.auth.signOut().then(() => location.reload())" class="w-full text-red-500/50 font-bold text-[8px] uppercase">TERMINATE SESSION</button>
+        </div>
+    </div>
 
     <script src="index.js" type="module"></script>
 </body>
