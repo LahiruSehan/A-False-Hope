@@ -4,21 +4,19 @@ export const APP_CONFIG = {
     author: "Lahiru Sehan",
     authorEmail: "lamusicstudio831@gmail.com",
     firstReaderEmail: "hackeraro2005@gmail.com",
-    coWriterEmail: "chamalikarunarathne167@gmail.com", // Added Co-Writer
+    coWriterEmail: "chamalikarunarathne167@gmail.com", // Co-Writer Email
+    
     // This dynamically gets the current URL. 
-    // If you are on hope2877.online, it uses that. 
-    // If you are on github.io, it uses that.
     redirectUrl: window.location.origin + (window.location.pathname.endsWith('/') ? window.location.pathname : window.location.pathname + '/'),
+    
     assets: {
         cover: "https://i.ibb.co/0jNjDF8k/Cover2.png",
         defaultAvatar: "https://i.ibb.co/vzG7P6z/default.png"
     }
 };
+
 /**
  * Chapter Configuration
- * id: The chapter number (corresponds to folder imageschapter[id])
- * title: The custom name for the chapter
- * pages: The total number of images (1.png, 2.png, ...) in that folder
  */
 export const CHAPTER_CONFIG = {
     1:  { title: "THE RAGE", pages: 24 },
@@ -53,6 +51,4 @@ export const CHAPTER_CONFIG = {
     30: { title: "THE END", pages: 60 },
 };
 
-
-// Default values for chapters not explicitly defined above
 export const DEFAULT_CHAPTER_PAGES = 15;

@@ -43,14 +43,14 @@
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Inter:ital,wght@0,400;0,700;0,900;1,900&display=swap" rel="stylesheet">
     <style>
         :root { --aura-color: #a855f7; --void-black: #020617; --gold: #fbbf24; }
-        body { font-family: 'Inter', sans-serif; background: var(--void-black); color: #f8fafc; -webkit-tap-highlight-color: transparent; }
+        body { font-family: 'Inter', sans-serif; background: var(--void-black); color: #f8fafc; -webkit-tap-highlight-color: transparent; transition: background-color 0.5s ease; }
         #particle-canvas { position: fixed; inset: 0; z-index: -1; pointer-events: none; transition: opacity 0.5s; }
         
         .fantasy-font { font-family: 'Cinzel', serif; }
         .view { height: 100vh; width: 100vw; position: fixed; inset: 0; z-index: 10; overflow-y: auto; -webkit-overflow-scrolling: touch; }
         .hidden { display: none !important; }
         
-        .glass-panel { background: rgba(10, 15, 30, 0.85); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .glass-panel { background: rgba(10, 15, 30, 0.85); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255,255,255,0.05); transition: transform 0.3s ease; }
         .bold-italic { font-weight: 900; font-style: italic; letter-spacing: -0.04em; }
         
         .modal-bg { background: rgba(0, 0, 0, 0.96); backdrop-filter: blur(12px); transition: all 0.3s ease; }
@@ -150,20 +150,15 @@
         }
 
         /* Toggle Switch Styling */
-        .toggle-checkbox:checked {
-            right: 0;
-            border-color: #a855f7;
-        }
-        .toggle-checkbox:checked + .toggle-label {
-            background-color: #a855f7;
-        }
         .setting-row {
             display: flex;
             justify-content: space-between;
             align-items: center;
             padding: 10px 0;
             border-bottom: 1px solid rgba(255,255,255,0.05);
+            cursor: pointer;
         }
+        .setting-row:active { background: rgba(255,255,255,0.02); }
     </style>
 </head>
 <body class="bg-[#020617]">
@@ -315,25 +310,25 @@
                 <div>
                     <h4 class="text-[9px] font-black text-slate-500 uppercase mb-2">Reading Experience</h4>
                     <div class="space-y-1">
-                        <div class="setting-row">
+                        <div class="setting-row" onclick="toggleSetting('oled')">
                             <span class="text-[10px] text-slate-300">Dark Mode (OLED)</span>
-                            <div class="relative inline-block w-8 h-4 rounded-full cursor-pointer bg-purple-600"><div class="absolute right-1 top-0.5 w-3 h-3 bg-white rounded-full transition-all"></div></div>
+                            <div id="setting-oled" class="relative inline-block w-8 h-4 rounded-full cursor-pointer bg-white/10 transition-colors"><div class="absolute left-1 top-0.5 w-3 h-3 bg-white rounded-full transition-all"></div></div>
                         </div>
-                        <div class="setting-row">
+                        <div class="setting-row" onclick="toggleSetting('music')">
                             <span class="text-[10px] text-slate-300">Background Music</span>
-                            <div class="relative inline-block w-8 h-4 rounded-full cursor-pointer bg-white/10"><div class="absolute left-1 top-0.5 w-3 h-3 bg-white/50 rounded-full transition-all"></div></div>
+                            <div id="setting-music" class="relative inline-block w-8 h-4 rounded-full cursor-pointer bg-white/10 transition-colors"><div class="absolute left-1 top-0.5 w-3 h-3 bg-white/50 rounded-full transition-all"></div></div>
                         </div>
-                        <div class="setting-row">
+                        <div class="setting-row" onclick="toggleSetting('haptics')">
                             <span class="text-[10px] text-slate-300">Haptic Feedback</span>
-                            <div class="relative inline-block w-8 h-4 rounded-full cursor-pointer bg-purple-600"><div class="absolute right-1 top-0.5 w-3 h-3 bg-white rounded-full transition-all"></div></div>
+                            <div id="setting-haptics" class="relative inline-block w-8 h-4 rounded-full cursor-pointer bg-purple-600 transition-colors"><div class="absolute right-1 top-0.5 w-3 h-3 bg-white rounded-full transition-all"></div></div>
                         </div>
-                        <div class="setting-row">
+                        <div class="setting-row" onclick="toggleSetting('autoHide')">
                             <span class="text-[10px] text-slate-300">Auto-Hide UI</span>
-                            <div class="relative inline-block w-8 h-4 rounded-full cursor-pointer bg-purple-600"><div class="absolute right-1 top-0.5 w-3 h-3 bg-white rounded-full transition-all"></div></div>
+                            <div id="setting-autohide" class="relative inline-block w-8 h-4 rounded-full cursor-pointer bg-white/10 transition-colors"><div class="absolute left-1 top-0.5 w-3 h-3 bg-white rounded-full transition-all"></div></div>
                         </div>
-                        <div class="setting-row">
+                        <div class="setting-row" onclick="toggleSetting('transitions')">
                             <span class="text-[10px] text-slate-300">Page Transitions</span>
-                            <div class="relative inline-block w-8 h-4 rounded-full cursor-pointer bg-purple-600"><div class="absolute right-1 top-0.5 w-3 h-3 bg-white rounded-full transition-all"></div></div>
+                            <div id="setting-transitions" class="relative inline-block w-8 h-4 rounded-full cursor-pointer bg-purple-600 transition-colors"><div class="absolute right-1 top-0.5 w-3 h-3 bg-white rounded-full transition-all"></div></div>
                         </div>
                     </div>
                 </div>
@@ -342,17 +337,9 @@
                 <div>
                     <h4 class="text-[9px] font-black text-slate-500 uppercase mb-2">Notifications</h4>
                     <div class="space-y-1">
-                        <div class="setting-row">
+                        <div class="setting-row" onclick="toggleSetting('notifications')">
                             <span class="text-[10px] text-slate-300">New Chapter Alerts</span>
-                            <div class="relative inline-block w-8 h-4 rounded-full cursor-pointer bg-purple-600"><div class="absolute right-1 top-0.5 w-3 h-3 bg-white rounded-full transition-all"></div></div>
-                        </div>
-                        <div class="setting-row">
-                            <span class="text-[10px] text-slate-300">Comment Replies</span>
-                            <div class="relative inline-block w-8 h-4 rounded-full cursor-pointer bg-purple-600"><div class="absolute right-1 top-0.5 w-3 h-3 bg-white rounded-full transition-all"></div></div>
-                        </div>
-                        <div class="setting-row">
-                            <span class="text-[10px] text-slate-300">System Announcements</span>
-                            <div class="relative inline-block w-8 h-4 rounded-full cursor-pointer bg-purple-600"><div class="absolute right-1 top-0.5 w-3 h-3 bg-white rounded-full transition-all"></div></div>
+                            <div id="setting-notif-chapter" class="relative inline-block w-8 h-4 rounded-full cursor-pointer bg-purple-600 transition-colors"><div class="absolute right-1 top-0.5 w-3 h-3 bg-white rounded-full transition-all"></div></div>
                         </div>
                     </div>
                 </div>
@@ -361,40 +348,9 @@
                 <div>
                     <h4 class="text-[9px] font-black text-slate-500 uppercase mb-2">Data & Storage</h4>
                     <div class="space-y-1">
-                        <div class="setting-row">
-                            <span class="text-[10px] text-slate-300">Data Saver Mode</span>
-                            <div class="relative inline-block w-8 h-4 rounded-full cursor-pointer bg-white/10"><div class="absolute left-1 top-0.5 w-3 h-3 bg-white/50 rounded-full transition-all"></div></div>
-                        </div>
-                        <div class="setting-row">
-                            <span class="text-[10px] text-slate-300">Cache Images</span>
-                            <div class="relative inline-block w-8 h-4 rounded-full cursor-pointer bg-purple-600"><div class="absolute right-1 top-0.5 w-3 h-3 bg-white rounded-full transition-all"></div></div>
-                        </div>
-                        <div class="setting-row">
-                            <span class="text-[10px] text-slate-300">Preload Next Chapter</span>
-                            <div class="relative inline-block w-8 h-4 rounded-full cursor-pointer bg-purple-600"><div class="absolute right-1 top-0.5 w-3 h-3 bg-white rounded-full transition-all"></div></div>
-                        </div>
-                         <div class="setting-row">
+                         <div class="setting-row" onclick="clearCache()">
                             <span class="text-[10px] text-slate-300">Clear Cache</span>
                             <button class="text-[9px] bg-white/5 px-2 py-1 rounded text-red-400">CLEAR</button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Group 4: Social -->
-                <div>
-                    <h4 class="text-[9px] font-black text-slate-500 uppercase mb-2">Social</h4>
-                    <div class="space-y-1">
-                        <div class="setting-row">
-                            <span class="text-[10px] text-slate-300">Show Online Status</span>
-                            <div class="relative inline-block w-8 h-4 rounded-full cursor-pointer bg-purple-600"><div class="absolute right-1 top-0.5 w-3 h-3 bg-white rounded-full transition-all"></div></div>
-                        </div>
-                        <div class="setting-row">
-                            <span class="text-[10px] text-slate-300">Allow Direct Messages</span>
-                            <div class="relative inline-block w-8 h-4 rounded-full cursor-pointer bg-purple-600"><div class="absolute right-1 top-0.5 w-3 h-3 bg-white rounded-full transition-all"></div></div>
-                        </div>
-                         <div class="setting-row">
-                            <span class="text-[10px] text-slate-300">Public Profile</span>
-                            <div class="relative inline-block w-8 h-4 rounded-full cursor-pointer bg-purple-600"><div class="absolute right-1 top-0.5 w-3 h-3 bg-white rounded-full transition-all"></div></div>
                         </div>
                     </div>
                 </div>
@@ -403,21 +359,13 @@
                 <div>
                     <h4 class="text-[9px] font-black text-slate-500 uppercase mb-2">Advanced</h4>
                     <div class="space-y-1">
-                        <div class="setting-row">
+                        <div class="setting-row" onclick="toggleSetting('particlesHQ')">
                             <span class="text-[10px] text-slate-300">High Quality Particles</span>
-                            <div class="relative inline-block w-8 h-4 rounded-full cursor-pointer bg-purple-600"><div class="absolute right-1 top-0.5 w-3 h-3 bg-white rounded-full transition-all"></div></div>
-                        </div>
-                        <div class="setting-row">
-                            <span class="text-[10px] text-slate-300">Debug Mode</span>
-                            <div class="relative inline-block w-8 h-4 rounded-full cursor-pointer bg-white/10"><div class="absolute left-1 top-0.5 w-3 h-3 bg-white/50 rounded-full transition-all"></div></div>
-                        </div>
-                        <div class="setting-row">
-                            <span class="text-[10px] text-slate-300">Language</span>
-                             <span class="text-[9px] text-slate-500">ENGLISH</span>
+                            <div id="setting-particles" class="relative inline-block w-8 h-4 rounded-full cursor-pointer bg-white/10 transition-colors"><div class="absolute left-1 top-0.5 w-3 h-3 bg-white rounded-full transition-all"></div></div>
                         </div>
                         <div class="setting-row">
                             <span class="text-[10px] text-slate-300">Version</span>
-                            <span class="text-[9px] text-slate-500">v2.1.0</span>
+                            <span class="text-[9px] text-slate-500">v2.1.2</span>
                         </div>
                     </div>
                 </div>

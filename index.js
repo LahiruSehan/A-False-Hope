@@ -7,41 +7,139 @@ const SUPABASE_URL = 'https://qpagyfoedsrbenhsoemx.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_zaDorGnE20zlG805wQ3SXA_81UbgmLY';
 const supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
 
+// --- STATE MANAGEMENT ---
 let currentUser = null, profileData = null, navHistory = ['home-view'], currentRating = 0;
-let chapterSort = 'old'; // Changed default to 'old' as requested
+let chapterSort = 'old';
 let homeTab = 'leaderboard';
 let currentChapterId = null;
 let activeChatId = null;
-let deferredPrompt = null; // For PWA Install
+let deferredPrompt = null;
+let lastScrollTop = 0; // For auto-hide UI
 
-// Helper: Haptic Vibration
-function v(ms = 10) { if (window.hapticEnabled !== false && navigator.vibrate) navigator.vibrate(ms); }
+// --- SETTINGS MANAGEMENT ---
+const DEFAULT_SETTINGS = {
+    oled: false,
+    music: false,
+    haptics: true,
+    autoHide: false,
+    transitions: true,
+    notifications: true,
+    particlesHQ: false
+};
 
-// Initialize PWA Install Prompt
-window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
-    deferredPrompt = e;
-    const btn = document.getElementById('install-app-btn');
-    if(btn) btn.classList.remove('hidden');
-});
+let appSettings = JSON.parse(localStorage.getItem('afh_settings')) || DEFAULT_SETTINGS;
 
+function saveSettings() {
+    localStorage.setItem('afh_settings', JSON.stringify(appSettings));
+    applySettings();
+}
+
+function applySettings() {
+    // OLED Mode
+    if (appSettings.oled) document.body.style.backgroundColor = '#000000';
+    else document.body.style.backgroundColor = '#020617';
+
+    // Update Toggles in UI
+    updateToggleUI('setting-oled', appSettings.oled);
+    updateToggleUI('setting-music', appSettings.music);
+    updateToggleUI('setting-haptics', appSettings.haptics);
+    updateToggleUI('setting-autohide', appSettings.autoHide);
+    updateToggleUI('setting-transitions', appSettings.transitions);
+    updateToggleUI('setting-notif-chapter', appSettings.notifications);
+    updateToggleUI('setting-particles', appSettings.particlesHQ);
+
+    // Particles
+    initParticles();
+}
+
+function updateToggleUI(id, isActive) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const knob = el.querySelector('div');
+    if (isActive) {
+        el.classList.replace('bg-white/10', 'bg-purple-600');
+        el.classList.replace('bg-slate-700', 'bg-purple-600'); // Fallback
+        knob.classList.replace('left-1', 'right-1');
+    } else {
+        el.classList.replace('bg-purple-600', 'bg-white/10');
+        knob.classList.replace('right-1', 'left-1');
+    }
+}
+
+window.toggleSetting = (key) => {
+    v(15);
+    appSettings[key] = !appSettings[key];
+    saveSettings();
+    if(key === 'music') toggleMusic(appSettings.music);
+};
+
+// --- AUDIO SYSTEM ---
+let bgMusic = new Audio('audio/bgm.mp3'); // Placeholder path
+bgMusic.loop = true;
+
+function toggleMusic(play) {
+    if(play) {
+        bgMusic.play().catch(e => console.log("Audio waiting for interaction"));
+    } else {
+        bgMusic.pause();
+    }
+}
+
+// --- HELPER: HAPTIC VIBRATION ---
+function v(ms = 10) { 
+    if (appSettings.haptics && navigator.vibrate) navigator.vibrate(ms); 
+}
+
+// --- PARTICLES ---
 function initParticles() {
     const canvas = document.getElementById('particle-canvas');
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
+    
+    // Stop old animation if exists (basic check)
+    if(window.particleAnimId) cancelAnimationFrame(window.particleAnimId);
+
     let particles = [];
+    const count = appSettings.particlesHQ ? 100 : 30; // Settings driven count
+    
     const resize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
+    
     class P { 
         constructor() { this.r(); } 
-        r() { this.x = Math.random()*canvas.width; this.y = Math.random()*canvas.height; this.s = Math.random()*1.5; this.vx = (Math.random()-0.5)*0.2; this.vy = (Math.random()-0.5)*0.2; this.o = Math.random()*0.3; } 
-        u() { this.x+=this.vx; this.y+=this.vy; if(this.x<0||this.x>canvas.width||this.y<0||this.y>canvas.height) this.r(); } 
-        d() { ctx.fillStyle=`rgba(168,85,247,${this.o})`; ctx.beginPath(); ctx.arc(this.x,this.y,this.s,0,Math.PI*2); ctx.fill(); } 
+        r() { 
+            this.x = Math.random()*canvas.width; 
+            this.y = Math.random()*canvas.height; 
+            this.s = Math.random() * (appSettings.particlesHQ ? 2 : 1.5); 
+            this.vx = (Math.random()-0.5)*0.2; 
+            this.vy = (Math.random()-0.5)*0.2; 
+            this.o = Math.random()*0.3; 
+        } 
+        u() { 
+            this.x+=this.vx; this.y+=this.vy; 
+            if(this.x<0||this.x>canvas.width||this.y<0||this.y>canvas.height) this.r(); 
+        } 
+        d() { 
+            ctx.fillStyle=`rgba(168,85,247,${this.o})`; 
+            ctx.beginPath(); 
+            ctx.arc(this.x,this.y,this.s,0,Math.PI*2); 
+            ctx.fill(); 
+        } 
     }
-    for(let i=0;i<40;i++) particles.push(new P());
-    const anim = () => { ctx.clearRect(0,0,canvas.width,canvas.height); particles.forEach(p=>{p.u();p.d();}); requestAnimationFrame(anim); };
-    window.addEventListener('resize', resize); resize(); anim();
+    
+    for(let i=0;i<count;i++) particles.push(new P());
+    
+    const anim = () => { 
+        ctx.clearRect(0,0,canvas.width,canvas.height); 
+        particles.forEach(p=>{p.u();p.d();}); 
+        window.particleAnimId = requestAnimationFrame(anim); 
+    };
+    
+    window.addEventListener('resize', resize); 
+    resize(); 
+    anim();
 }
 
+// --- AUTH & DATA ---
 async function checkAuth() {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
@@ -62,10 +160,10 @@ function setupRealtime() {
         }).subscribe();
 
     supabase.channel('public:chapter_updates')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'chapter_comments' }, payload => {
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'chapter_comments' }, () => {
             if (window.currentView === 'chapters-view') loadChapters();
         })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'chapter_likes' }, payload => {
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'chapter_likes' }, () => {
             if (window.currentView === 'chapters-view') loadChapters();
         }).subscribe();
 }
@@ -93,14 +191,20 @@ async function syncProfile() {
     } catch (e) { console.error("Profile sync error", e); }
 }
 
+// --- NAVIGATION & VIEWS ---
 window.showView = function(id, push = true) {
     v();
     const target = document.getElementById(id);
     if (!target) return;
 
     window.currentView = id;
-    document.querySelectorAll('.view').forEach(view => view.classList.add('hidden'));
+    document.querySelectorAll('.view').forEach(view => {
+        view.classList.add('hidden');
+        if(appSettings.transitions) view.classList.remove('animate-in', 'fade-in');
+    });
+    
     target.classList.remove('hidden');
+    if(appSettings.transitions) target.classList.add('animate-in', 'fade-in', 'duration-300');
     
     if (push && navHistory[navHistory.length - 1] !== id) navHistory.push(id);
     
@@ -116,7 +220,12 @@ window.showView = function(id, push = true) {
     if (id !== 'reader-view') target.scrollTop = 0;
 };
 
-window.goBack = () => { if(navHistory.length > 1) { navHistory.pop(); window.showView(navHistory[navHistory.length-1], false); } };
+window.goBack = () => { 
+    if(navHistory.length > 1) { 
+        navHistory.pop(); 
+        window.showView(navHistory[navHistory.length-1], false); 
+    } 
+};
 
 window.toggleModal = (id) => { 
     v(); 
@@ -132,6 +241,7 @@ window.toggleModal = (id) => {
     }
 };
 
+// --- HOME & LEADERBOARD ---
 window.setHomeTab = (tab) => { homeTab = tab; loadHomeContent(); };
 
 async function loadHomeContent() {
@@ -144,9 +254,10 @@ async function loadHomeContent() {
         const { data } = await supabase.from('profiles').select('*').order('created_at', { ascending: false }).limit(20);
         
         c.innerHTML = (data || []).map((u, i) => {
-            const isAuth = u.email === APP_CONFIG.authorEmail;
-            const isFirst = u.email === APP_CONFIG.firstReaderEmail;
-            const isCoWriter = u.email === APP_CONFIG.coWriterEmail;
+            const email = u.email ? u.email.toLowerCase() : '';
+            const isAuth = email === APP_CONFIG.authorEmail.toLowerCase();
+            const isFirst = email === APP_CONFIG.firstReaderEmail.toLowerCase();
+            const isCoWriter = email === APP_CONFIG.coWriterEmail.toLowerCase();
             
             let name = u.display_name;
             if (isAuth) name = APP_CONFIG.author.toUpperCase();
@@ -183,6 +294,7 @@ async function loadHomeContent() {
     } catch(e) { c.innerHTML = '<p class="text-center py-10 opacity-20 text-[8px]">FAILED TO LOAD DATA</p>'; }
 }
 
+// --- CHAPTERS ---
 window.setChapterSort = (type) => {
     v();
     chapterSort = type;
@@ -258,9 +370,10 @@ async function loadChapterComments(id) {
         const { data } = await supabase.from('chapter_comments').select('*, profiles(display_name, avatar_url, email, rating)').eq('chapter_id', id).order('created_at', { ascending: false });
         list.innerHTML = (data || []).map(c => {
             const p = c.profiles || {};
-            const isAuth = p.email === APP_CONFIG.authorEmail;
-            const isFirst = p.email === APP_CONFIG.firstReaderEmail;
-            const isCoWriter = p.email === APP_CONFIG.coWriterEmail;
+            const email = p.email ? p.email.toLowerCase() : '';
+            const isAuth = email === APP_CONFIG.authorEmail.toLowerCase();
+            const isFirst = email === APP_CONFIG.firstReaderEmail.toLowerCase();
+            const isCoWriter = email === APP_CONFIG.coWriterEmail.toLowerCase();
             
             let name = p.display_name;
             if (isAuth) name = APP_CONFIG.author.toUpperCase();
@@ -337,6 +450,20 @@ window.openReader = (id) => {
         const height = readerView.scrollHeight - readerView.clientHeight;
         const scrolled = height > 0 ? (winScroll / height) * 100 : 0;
         if(progress) progress.style.width = scrolled + "%";
+
+        // Auto Hide Logic
+        if (appSettings.autoHide) {
+            const st = winScroll;
+            const nav = document.getElementById('app-nav');
+            if (st > lastScrollTop && st > 50) {
+                // Scroll Down
+                if(nav) nav.style.transform = 'translateY(-100%)';
+            } else {
+                // Scroll Up
+                if(nav) nav.style.transform = 'translateY(0)';
+            }
+            lastScrollTop = st <= 0 ? 0 : st;
+        }
     };
 };
 
@@ -345,9 +472,10 @@ window.showUserProfile = async (userId) => {
         const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
         if(!data) return;
         
-        const isAuth = data.email === APP_CONFIG.authorEmail;
-        const isFirst = data.email === APP_CONFIG.firstReaderEmail;
-        const isCoWriter = data.email === APP_CONFIG.coWriterEmail;
+        const email = data.email ? data.email.toLowerCase() : '';
+        const isAuth = email === APP_CONFIG.authorEmail.toLowerCase();
+        const isFirst = email === APP_CONFIG.firstReaderEmail.toLowerCase();
+        const isCoWriter = email === APP_CONFIG.coWriterEmail.toLowerCase();
         
         let name = data.display_name;
         if (isAuth) name = APP_CONFIG.author.toUpperCase();
@@ -378,6 +506,7 @@ window.showUserProfile = async (userId) => {
     } catch(e){}
 };
 
+// --- READERS & CHAT ---
 async function loadReaders() {
     const c = document.getElementById('readers-list');
     if(!c) return;
@@ -385,9 +514,10 @@ async function loadReaders() {
     try {
         const { data } = await supabase.from('profiles').select('*');
         c.innerHTML = (data || []).map(r => {
-            const isAuth = r.email === APP_CONFIG.authorEmail;
-            const isFirst = r.email === APP_CONFIG.firstReaderEmail;
-            const isCoWriter = r.email === APP_CONFIG.coWriterEmail;
+            const email = r.email ? r.email.toLowerCase() : '';
+            const isAuth = email === APP_CONFIG.authorEmail.toLowerCase();
+            const isFirst = email === APP_CONFIG.firstReaderEmail.toLowerCase();
+            const isCoWriter = email === APP_CONFIG.coWriterEmail.toLowerCase();
             
             let name = r.display_name;
             if (isAuth) name = APP_CONFIG.author.toUpperCase();
@@ -477,6 +607,7 @@ window.sendMessage = async (userId) => {
     } catch(e){}
 };
 
+// --- RATING SYSTEM ---
 window.setRating = (num) => {
     v();
     currentRating = num;
@@ -496,30 +627,47 @@ window.submitRating = async () => {
     } catch(e){}
 };
 
+// --- UI UPDATES ---
 function updateUI() {
     if (!profileData) return;
-    const isAuth = profileData.email === APP_CONFIG.authorEmail;
-    const isFirst = profileData.email === APP_CONFIG.firstReaderEmail;
-    const isCoWriter = profileData.email === APP_CONFIG.coWriterEmail;
+    
+    const email = profileData.email ? profileData.email.toLowerCase() : '';
+    const isAuth = email === APP_CONFIG.authorEmail.toLowerCase();
+    const isFirst = email === APP_CONFIG.firstReaderEmail.toLowerCase();
+    const isCoWriter = email === APP_CONFIG.coWriterEmail.toLowerCase();
     
     let name = profileData.display_name;
     if (isAuth) name = APP_CONFIG.author.toUpperCase();
     
     const nameEl = document.getElementById('nav-user-name');
     const roleEl = document.getElementById('nav-user-role');
+    const settingsNameEl = document.getElementById('settings-user-name');
+    const settingsRoleLabel = document.getElementById('settings-role-label');
+    
     if (nameEl) nameEl.innerText = name.toUpperCase();
+    if (settingsNameEl) settingsNameEl.innerText = name.toUpperCase();
     
     let roleText = 'READER';
-    if (isAuth) roleText = 'AUTHOR & CREATOR';
-    else if (isFirst) roleText = 'FIRST READER';
-    else if (isCoWriter) roleText = 'CO-WRITER (EMOTIONS)';
+    let roleColorClass = 'text-purple-400';
+    
+    if (isAuth) {
+        roleText = 'AUTHOR & CREATOR';
+    } else if (isFirst) {
+        roleText = 'FIRST READER';
+        roleColorClass = 'text-cyan-400';
+    } else if (isCoWriter) {
+        roleText = 'CO-WRITER (EMOTIONS)';
+        roleColorClass = 'text-fuchsia-400';
+    }
     
     if (roleEl) {
         roleEl.innerText = roleText;
-        roleEl.className = 'text-[9px] font-bold uppercase tracking-tighter';
-        if (isFirst) roleEl.classList.add('text-cyan-400');
-        else if (isCoWriter) roleEl.classList.add('text-fuchsia-400');
-        else roleEl.classList.add('text-purple-400');
+        roleEl.className = `text-[9px] font-bold uppercase tracking-tighter ${roleColorClass}`;
+    }
+    
+    if (settingsRoleLabel) {
+        settingsRoleLabel.innerText = roleText;
+        settingsRoleLabel.className = `text-[8px] font-black uppercase ${roleColorClass}`;
     }
     
     const navPill = document.getElementById('nav-rating-pill');
@@ -570,6 +718,12 @@ window.installApp = async () => {
     }
 };
 
+window.clearCache = () => {
+    if(confirm("Reload app and clear cache?")) {
+        window.location.reload(true);
+    }
+};
+
 const recognitionData = {
     'MINASHA': { text: "Inspired the creation and personality of Viyona — becoming the heart behind her emotions, elegance, and charm — and contributed romantic moment ideas that shaped some of the story’s most beautiful emotional and stylistic scenes. 🌙💞✨", icon: "❤️" },
     'AROSHA': { text: "Early reviewer and first-ever reader of HOPE 2877 (BOOK) & the first to review every manga page as it’s created, providing fresh perspectives, inspirational suggestions and deep story-strengthening feedback throughout the entire creative process. 🌌✨", icon: "🔥" }
@@ -587,10 +741,11 @@ window.openRecognition = (key) => {
     }
 };
 
+// --- INIT ---
 document.addEventListener('DOMContentLoaded', () => { 
-    initParticles(); 
+    applySettings(); // Apply settings first
     checkAuth();
-    // Set default sort to Old
+    
     document.getElementById('sort-new').classList.remove('active');
     document.getElementById('sort-old').classList.add('active');
 
