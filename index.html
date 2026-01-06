@@ -23,10 +23,8 @@
         .glass-panel { background: rgba(10, 15, 30, 0.85); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255,255,255,0.05); }
         .bold-italic { font-weight: 900; font-style: italic; letter-spacing: -0.04em; }
         
-        /* Modal Backdrop - Full Darkening */
         .modal-bg { background: rgba(0, 0, 0, 0.96); backdrop-filter: blur(12px); transition: all 0.3s ease; }
 
-        /* RED Title Gradient */
         .animated-title {
             background: linear-gradient(to right, #7f1d1d, #dc2626, #f87171, #7f1d1d);
             background-size: 300% auto; -webkit-background-clip: text; -webkit-text-fill-color: transparent;
@@ -34,7 +32,6 @@
         }
         @keyframes gradient-flow { 0% { background-position: 0% center; } 100% { background-position: 100% center; } }
         
-        /* DARK BLUE Read Now Button */
         .btn-read-now {
             background: linear-gradient(270deg, #172554, #1e40af, #3b82f6, #172554);
             background-size: 300% 300%;
@@ -88,6 +85,25 @@
         .creator-glow { 
             box-shadow: 0 0 15px rgba(168, 85, 247, 0.5); 
             border: 2px solid #a855f7 !important;
+        }
+
+        .filter-chip {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.4);
+            padding: 4px 12px;
+            border-radius: 99px;
+            font-size: 9px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            transition: all 0.3s;
+        }
+        .filter-chip.active {
+            background: var(--aura-color);
+            border-color: var(--aura-color);
+            color: white;
+            box-shadow: 0 0 10px rgba(168, 85, 247, 0.3);
         }
     </style>
 </head>
@@ -168,12 +184,24 @@
     </section>
 
     <section id="chapters-view" class="view hidden bg-transparent pt-14">
+        <div class="p-4 flex items-center justify-between">
+            <h3 class="fantasy-font text-lg font-black text-white uppercase">Archive</h3>
+            <div class="flex gap-2">
+                <button id="sort-new" onclick="setChapterSort('new')" class="filter-chip active">Latest</button>
+                <button id="sort-old" onclick="setChapterSort('old')" class="filter-chip">Oldest</button>
+            </div>
+        </div>
         <div id="chapters-list-mobile" class="p-4 space-y-4 pb-32"></div>
     </section>
 
     <section id="reader-view" class="view hidden bg-black">
         <div id="reader-progress-bar" class="fixed top-0 left-0 h-1.5 bg-blue-600 w-0 z-[200]"></div>
-        <div id="reader-pages" class="w-full max-w-3xl mx-auto relative pt-16"></div>
+        <div class="fixed top-0 left-0 right-0 p-4 z-[200] flex justify-between pointer-events-none">
+             <button onclick="goBack()" class="p-2 bg-black/50 rounded-full pointer-events-auto">
+                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="3" d="M15 19l-7-7 7-7"></path></svg>
+             </button>
+        </div>
+        <div id="reader-pages" class="w-full max-w-3xl mx-auto relative"></div>
     </section>
 
     <section id="readers-view" class="view hidden bg-transparent pt-14">
@@ -199,13 +227,6 @@
                 <textarea id="profile-edit-bio" rows="2" class="bg-white/5 border border-white/10 rounded-lg p-2 w-full text-xs text-white resize-none" placeholder="Short Bio"></textarea>
                 <button onclick="updateProfile()" class="w-full bg-purple-600 py-2 rounded-lg font-bold text-[10px] uppercase text-white">SAVE PROFILE</button>
             </div>
-        </div>
-    </div>
-
-    <div id="gallery-lightbox" class="fixed inset-0 z-[600] hidden modal-bg flex items-center justify-center p-4" onclick="toggleModal('gallery-lightbox')">
-        <div class="relative w-full h-full flex flex-col items-center justify-center" onclick="event.stopPropagation()">
-            <img id="lightbox-img" src="" class="max-w-full max-h-[60vh] rounded-lg shadow-2xl object-contain">
-            <div id="fanart-interactions" class="w-full max-w-[400px] mt-4 p-4 glass-panel rounded-2xl border border-white/10 space-y-4 overflow-y-auto max-h-[30vh] no-scrollbar"></div>
         </div>
     </div>
 

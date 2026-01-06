@@ -1,3 +1,5 @@
+import { APP_CONFIG, CHAPTER_CONFIG, DEFAULT_CHAPTER_PAGES } from './config.js';
+
 const INTERNAL_API_KEY = "AIzaSyAOLlW_kN85EAassW-OV4OTuAT0Enl8RVc";
 if (typeof process === 'undefined') window.process = { env: { API_KEY: INTERNAL_API_KEY } };
 
@@ -5,14 +7,11 @@ const SUPABASE_URL = 'https://qpagyfoedsrbenhsoemx.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_zaDorGnE20zlG805wQ3SXA_81UbgmLY';
 const supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
 
-const AUTHOR_EMAIL = 'lamusicstudio831@gmail.com';
-const REDIRECT_URL = 'https://lahirusehan.github.io/A-False-Hope/';
-
 let currentUser = null, profileData = null, navHistory = ['home-view'], currentRating = 0;
-let chapterSort = 'new', homeTab = 'leaderboard';
+let chapterSort = 'new'; 
+let homeTab = 'leaderboard';
 let currentChapterId = null;
 let activeChatId = null;
-let currentFanArtId = null;
 
 // Helper: Haptic Vibration
 function v(ms = 10) { if (window.hapticEnabled !== false && navigator.vibrate) navigator.vibrate(ms); }
@@ -55,10 +54,10 @@ function setupRealtime() {
 
     supabase.channel('public:chapter_updates')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'chapter_comments' }, payload => {
-            if (currentView === 'chapters-view') loadChapters();
+            if (window.currentView === 'chapters-view') loadChapters();
         })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'chapter_likes' }, payload => {
-            if (currentView === 'chapters-view') loadChapters();
+            if (window.currentView === 'chapters-view') loadChapters();
         }).subscribe();
 }
 
@@ -72,7 +71,7 @@ async function syncProfile() {
             const newProfile = {
                 id: currentUser.id,
                 display_name: currentUser.user_metadata.full_name || 'Guest Reader',
-                avatar_url: currentUser.user_metadata.avatar_url || 'https://i.ibb.co/vzG7P6z/default.png',
+                avatar_url: currentUser.user_metadata.avatar_url || APP_CONFIG.assets.defaultAvatar,
                 email: currentUser.email,
                 bio: 'Surviving the hope.',
                 rating: 0,
@@ -90,13 +89,14 @@ window.showView = function(id, push = true) {
     const target = document.getElementById(id);
     if (!target) return;
 
+    window.currentView = id;
     document.querySelectorAll('.view').forEach(view => view.classList.add('hidden'));
     target.classList.remove('hidden');
     
     if (push && navHistory[navHistory.length - 1] !== id) navHistory.push(id);
     
     const nav = document.getElementById('app-nav');
-    if (nav) nav.classList.toggle('hidden', ['loading-view','login-view'].includes(id));
+    if (nav) nav.classList.toggle('hidden', ['loading-view','login-view','reader-view'].includes(id));
     
     const backBtn = document.getElementById('master-back-btn');
     if (backBtn) backBtn.classList.toggle('hidden', id === 'home-view');
@@ -135,8 +135,8 @@ async function loadHomeContent() {
         const { data } = await supabase.from('profiles').select('*').order('created_at', { ascending: false }).limit(20);
         
         c.innerHTML = (data || []).map((u, i) => {
-            const isAuth = u.email === AUTHOR_EMAIL;
-            const name = isAuth ? 'LAHIRU SEHAN' : u.display_name;
+            const isAuth = u.email === APP_CONFIG.authorEmail;
+            const name = isAuth ? APP_CONFIG.author.toUpperCase() : u.display_name;
             const r = u.rating ? `<span class="user-rating-pill">${u.rating} ★</span>` : '';
             return `
             <div class="flex items-center gap-3 p-3 bg-white/5 rounded-xl mb-2 cursor-pointer" onclick="showUserProfile('${u.id}')">
@@ -144,7 +144,7 @@ async function loadHomeContent() {
                 <img src="${u.avatar_url}" class="w-8 h-8 rounded-full object-cover border border-white/5 ${isAuth ? 'creator-glow' : ''}">
                 <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-1">
-                        <p class="text-[10px] font-black text-white truncate">${name.toUpperCase()}</p>
+                        <p class="text-[10px] font-black text-white truncate">${name}</p>
                         ${r}
                     </div>
                     <p class="text-[7px] text-purple-400 font-bold uppercase">${isAuth ? '<span class="author-tag">AUTHOR</span>' : 'READER'}</p>
@@ -154,6 +154,14 @@ async function loadHomeContent() {
     } catch(e) { c.innerHTML = '<p class="text-center py-10 opacity-20 text-[8px]">FAILED TO LOAD DATA</p>'; }
 }
 
+window.setChapterSort = (type) => {
+    v();
+    chapterSort = type;
+    document.getElementById('sort-new').classList.toggle('active', type === 'new');
+    document.getElementById('sort-old').classList.toggle('active', type === 'old');
+    loadChapters();
+};
+
 async function loadChapters() {
     const container = document.getElementById('chapters-list-mobile');
     if (!container) return;
@@ -161,19 +169,29 @@ async function loadChapters() {
         const { data: likes } = await supabase.from('chapter_likes').select('chapter_id');
         const { data: comms } = await supabase.from('chapter_comments').select('chapter_id');
         let chapters = [];
-        for(let i=1; i<=15; i++) {
+        
+        // Load all 30 chapters
+        for(let i=1; i<=30; i++) {
+            const config = CHAPTER_CONFIG[i] || { title: "CHAPTER PORTAL", pages: DEFAULT_CHAPTER_PAGES };
             chapters.push({ 
                 id: i, 
+                title: config.title,
                 likes: (likes || []).filter(l => l.chapter_id === i).length || 0, 
                 comments: (comms || []).filter(c => c.chapter_id === i).length || 0 
             });
         }
+        
         if (chapterSort === 'new') chapters.sort((a,b) => b.id - a.id);
+        else chapters.sort((a,b) => a.id - b.id);
+
         container.innerHTML = chapters.map(c => `
             <div id="chapter-card-${c.id}" class="chapter-tablet rounded-2xl p-4 flex justify-between items-center shadow-xl">
                 <div class="flex items-center gap-4 flex-1 cursor-pointer" onclick="openReader(${c.id})">
                     <div class="fantasy-font chapter-num-glow">${c.id}</div>
-                    <p class="fantasy-font text-[11px] font-bold text-white uppercase tracking-widest">CHAPTER PORTAL</p>
+                    <div class="flex flex-col">
+                        <p class="fantasy-font text-[11px] font-bold text-white uppercase tracking-widest">${c.title}</p>
+                        <p class="text-[7px] text-slate-500 font-black uppercase tracking-tighter mt-0.5">TAP TO OPEN PORTAL</p>
+                    </div>
                 </div>
                 <div class="flex gap-3">
                     <button onclick="likeChapterInline(${c.id})" class="action-orb"><span class="text-red-500">♥</span><span class="text-[9px]">${c.likes}</span></button>
@@ -212,12 +230,12 @@ async function loadChapterComments(id) {
         const { data } = await supabase.from('chapter_comments').select('*, profiles(display_name, avatar_url, email, rating)').eq('chapter_id', id).order('created_at', { ascending: false });
         list.innerHTML = (data || []).map(c => {
             const p = c.profiles || {};
-            const isAuth = p.email === AUTHOR_EMAIL;
+            const isAuth = p.email === APP_CONFIG.authorEmail;
             const r = p.rating ? `<span class="user-rating-pill ml-1">${p.rating} ★</span>` : '';
             return `<div class="flex gap-3 items-start p-3 bg-white/5 rounded-xl border border-white/5 animate-in slide-in-from-bottom-2">
                 <img src="${p.avatar_url}" class="w-8 h-8 rounded-full object-cover ${isAuth ? 'creator-glow' : ''}">
                 <div class="flex-1 min-w-0">
-                    <div class="flex items-center gap-1"><p class="text-[9px] font-black text-purple-400 uppercase truncate">${isAuth ? 'LAHIRU SEHAN' : p.display_name}</p>${r}</div>
+                    <div class="flex items-center gap-1"><p class="text-[9px] font-black text-purple-400 uppercase truncate">${isAuth ? APP_CONFIG.author.toUpperCase() : p.display_name}</p>${r}</div>
                     <p class="text-[11px] text-slate-200 leading-snug mt-0.5">${c.content}</p>
                 </div>
             </div>`;
@@ -255,14 +273,27 @@ window.openReader = (id) => {
     const container = document.getElementById('reader-pages');
     const progress = document.getElementById('reader-progress-bar');
     if(!container) return;
+    
+    const config = CHAPTER_CONFIG[id] || { title: "CHAPTER PORTAL", pages: DEFAULT_CHAPTER_PAGES };
+    
     container.innerHTML = '<div class="p-20 text-center opacity-10 text-[9px] uppercase tracking-[1em]">Summoning Portal...</div>';
     
     setTimeout(() => {
         container.innerHTML = '';
-        for(let i=1; i<=10; i++) {
+        // Load images based on folder structure provided by user
+        for(let i=1; i<=config.pages; i++) {
             const img = document.createElement('img');
-            img.src = `https://picsum.photos/seed/fh${id}_${i}/800/1200`;
-            img.className = "w-full shadow-2xl bg-slate-900 mb-1";
+            // Path: images/imageschapter[ID]/[PAGE].png
+            img.src = `images/imageschapter${id}/${i}.png`;
+            img.className = "w-full shadow-2xl bg-slate-900";
+            img.loading = "lazy";
+            
+            // Error handling if image doesn't exist
+            img.onerror = () => {
+                console.warn(`Failed to load page ${i} for chapter ${id}`);
+                img.style.display = 'none';
+            };
+            
             container.appendChild(img);
         }
     }, 400);
@@ -271,7 +302,7 @@ window.openReader = (id) => {
     readerView.onscroll = () => {
         const winScroll = readerView.scrollTop;
         const height = readerView.scrollHeight - readerView.clientHeight;
-        const scrolled = (winScroll / height) * 100;
+        const scrolled = height > 0 ? (winScroll / height) * 100 : 0;
         if(progress) progress.style.width = scrolled + "%";
     };
 };
@@ -280,8 +311,8 @@ window.showUserProfile = async (userId) => {
     try {
         const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
         if(!data) return;
-        const isAuth = data.email === AUTHOR_EMAIL;
-        const name = isAuth ? 'LAHIRU SEHAN' : data.display_name;
+        const isAuth = data.email === APP_CONFIG.authorEmail;
+        const name = isAuth ? APP_CONFIG.author.toUpperCase() : data.display_name;
         const r = data.rating ? `<span class="user-rating-pill py-1 px-3 mt-2 inline-block">${data.rating} ★ Rated</span>` : '';
         const content = document.getElementById('user-detail-content');
         if(!content) return;
@@ -304,8 +335,8 @@ async function loadReaders() {
     try {
         const { data } = await supabase.from('profiles').select('*');
         c.innerHTML = (data || []).map(r => {
-            const isAuth = r.email === AUTHOR_EMAIL;
-            const name = isAuth ? 'LAHIRU SEHAN' : r.display_name;
+            const isAuth = r.email === APP_CONFIG.authorEmail;
+            const name = isAuth ? APP_CONFIG.author.toUpperCase() : r.display_name;
             const rating = r.rating ? `<span class="user-rating-pill">${r.rating} ★</span>` : '';
             const isSelf = r.id === currentUser.id;
             return `
@@ -397,8 +428,8 @@ window.submitRating = async () => {
 
 function updateUI() {
     if (!profileData) return;
-    const isAuth = profileData.email === AUTHOR_EMAIL;
-    const name = isAuth ? 'LAHIRU SEHAN' : profileData.display_name;
+    const isAuth = profileData.email === APP_CONFIG.authorEmail;
+    const name = isAuth ? APP_CONFIG.author.toUpperCase() : profileData.display_name;
     
     const nameEl = document.getElementById('nav-user-name');
     const roleEl = document.getElementById('nav-user-role');
@@ -463,7 +494,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const loginBtn = document.getElementById('google-login-btn');
     if(loginBtn) {
         loginBtn.addEventListener('click', () => {
-            supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: REDIRECT_URL } });
+            supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: APP_CONFIG.redirectUrl } });
         });
     }
 });
