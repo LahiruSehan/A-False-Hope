@@ -52,6 +52,14 @@ function setupRealtime() {
                 loadMessagesInline(activeChatId);
             }
         }).subscribe();
+
+    supabase.channel('public:chapter_updates')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'chapter_comments' }, payload => {
+            if (currentView === 'chapters-view') loadChapters();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'chapter_likes' }, payload => {
+            if (currentView === 'chapters-view') loadChapters();
+        }).subscribe();
 }
 
 async function syncProfile() {
@@ -124,9 +132,7 @@ async function loadHomeContent() {
     c.innerHTML = '<div class="opacity-10 py-10 text-center uppercase text-[8px] tracking-widest">Gathering Data...</div>';
     
     try {
-        const query = supabase.from('profiles').select('*').limit(20);
-        // Fallback for missing last_seen column
-        const { data } = await query.order('created_at', { ascending: false }).catch(() => query);
+        const { data } = await supabase.from('profiles').select('*').order('created_at', { ascending: false }).limit(20);
         
         c.innerHTML = (data || []).map((u, i) => {
             const isAuth = u.email === AUTHOR_EMAIL;
@@ -148,84 +154,18 @@ async function loadHomeContent() {
     } catch(e) { c.innerHTML = '<p class="text-center py-10 opacity-20 text-[8px]">FAILED TO LOAD DATA</p>'; }
 }
 
-window.openLightbox = (src, id) => {
-    const lb = document.getElementById('gallery-lightbox');
-    const img = document.getElementById('lightbox-img');
-    if (lb && img) {
-        img.src = src; 
-        currentFanArtId = id;
-        lb.classList.remove('hidden');
-        loadFanArtInteractions(id);
-    }
-};
-
-async function loadFanArtInteractions(id) {
-    const container = document.getElementById('fanart-interactions');
-    if (!container) return;
-    container.innerHTML = '<div class="opacity-20 py-4 text-center text-[9px] uppercase tracking-widest">Gathering Scrolls...</div>';
-    try {
-        const { data: likes } = await supabase.from('fanart_likes').select('id').eq('fanart_id', id);
-        const { data: comms } = await supabase.from('fanart_comments').select('*, profiles(display_name, avatar_url, email, rating)').eq('fanart_id', id).order('created_at', { ascending: false });
-        
-        container.innerHTML = `
-            <div class="flex items-center justify-between border-b border-white/5 pb-3">
-                <button onclick="likeFanArt('${id}')" class="flex items-center gap-2 bg-red-500/10 px-4 py-2 rounded-lg text-red-500 text-[10px] font-black uppercase">♥ ${likes?.length || 0}</button>
-                <div class="text-[9px] font-bold text-slate-500 uppercase">${comms?.length || 0} Comments</div>
-            </div>
-            <div class="space-y-3 pt-2">
-                ${(comms || []).map(c => {
-                    const p = c.profiles || {};
-                    const isAuth = p.email === AUTHOR_EMAIL;
-                    const name = isAuth ? 'LAHIRU SEHAN' : p.display_name;
-                    const r = p.rating ? `<span class="user-rating-pill ml-1">${p.rating} ★</span>` : '';
-                    return `
-                    <div class="flex gap-2 items-start bg-white/5 p-2 rounded-xl">
-                        <img src="${p.avatar_url}" class="w-7 h-7 rounded-full object-cover border border-white/10 ${isAuth ? 'creator-glow' : ''}">
-                        <div class="flex-1 min-w-0">
-                            <div class="flex items-center gap-1">
-                                <p class="text-[9px] font-black text-purple-400 uppercase truncate">${name}</p>
-                                ${r}
-                            </div>
-                            <p class="text-[11px] text-slate-200 leading-tight break-words">${c.content}</p>
-                        </div>
-                    </div>`;
-                }).join('') || '<p class="text-[8px] opacity-10 text-center py-2 uppercase">No scrolls here yet.</p>'}
-            </div>
-            <div class="flex gap-2 pt-2">
-                <input id="fa-comment-input" type="text" placeholder="Share a thought..." class="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-[10px] text-white outline-none">
-                <button onclick="submitFanArtComment('${id}')" class="bg-purple-600 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase">Post</button>
-            </div>`;
-    } catch(e){ console.error(e); }
-}
-
-window.likeFanArt = async (id) => {
-    v(40);
-    try { await supabase.from('fanart_likes').insert({ fanart_id: id, user_id: currentUser.id }); loadFanArtInteractions(id); } catch(e){}
-};
-
-window.submitFanArtComment = async (id) => {
-    const input = document.getElementById('fa-comment-input');
-    const content = input?.value?.trim();
-    if(!content) return;
-    try {
-        await supabase.from('fanart_comments').insert({ fanart_id: id, user_id: currentUser.id, content });
-        input.value = ''; loadFanArtInteractions(id);
-    } catch(e){}
-};
-
 async function loadChapters() {
     const container = document.getElementById('chapters-list-mobile');
     if (!container) return;
-    container.innerHTML = '<div class="p-10 text-center opacity-20 uppercase text-[9px] tracking-widest">Summoning Scrolls...</div>';
     try {
         const { data: likes } = await supabase.from('chapter_likes').select('chapter_id');
         const { data: comms } = await supabase.from('chapter_comments').select('chapter_id');
         let chapters = [];
-        for(let i=1; i<=30; i++) {
+        for(let i=1; i<=15; i++) {
             chapters.push({ 
                 id: i, 
-                likes: likes?.filter(l => l.chapter_id === i).length || 0, 
-                comments: comms?.filter(c => c.chapter_id === i).length || 0 
+                likes: (likes || []).filter(l => l.chapter_id === i).length || 0, 
+                comments: (comms || []).filter(c => c.chapter_id === i).length || 0 
             });
         }
         if (chapterSort === 'new') chapters.sort((a,b) => b.id - a.id);
@@ -240,55 +180,100 @@ async function loadChapters() {
                     <button onclick="toggleChapterInlineComments(${c.id})" class="action-orb"><span class="text-slate-300">💬</span><span class="text-[9px]">${c.comments}</span></button>
                 </div>
             </div>
-            <div id="chapter-comments-inline-${c.id}" class="expandable-content border-t border-white/5 bg-black/40"><div id="list-${c.id}" class="p-4 space-y-2"></div></div>`).join('');
-    } catch(e){}
+            <div id="chapter-comments-inline-${c.id}" class="hidden bg-black/40 border-x border-b border-white/5 rounded-b-2xl mx-2 overflow-hidden">
+                <div class="p-4 space-y-4">
+                    <div class="flex gap-2">
+                        <input id="chapter-input-${c.id}" type="text" placeholder="Share your thoughts..." class="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-[10px] text-white outline-none">
+                        <button onclick="postChapterComment(${c.id})" class="bg-purple-600 px-4 py-2 rounded-lg text-[9px] font-black uppercase text-white">Post</button>
+                    </div>
+                    <div id="list-${c.id}" class="space-y-3 max-h-[300px] overflow-y-auto pr-1"></div>
+                </div>
+            </div>`).join('');
+    } catch(e){
+        container.innerHTML = `<div class="p-10 text-center opacity-30 text-xs">Run the SQL in your dashboard to fix 404 errors.</div>`;
+    }
 }
 
 window.toggleChapterInlineComments = async (id) => {
-    const card = document.getElementById(`chapter-card-${id}`);
-    const list = document.getElementById(`list-${id}`);
-    if(!card || !list) return;
-    card.classList.toggle('expanded');
-    if(card.classList.contains('expanded')) {
-        list.innerHTML = '<div class="text-center py-2 opacity-10 text-[8px] uppercase">Summoning...</div>';
-        try {
-            const { data } = await supabase.from('chapter_comments').select('*, profiles(display_name, avatar_url, email, rating)').eq('chapter_id', id).order('created_at', { ascending: false });
-            list.innerHTML = (data || []).map(c => {
-                const p = c.profiles || {};
-                const isAuth = p.email === AUTHOR_EMAIL;
-                const r = p.rating ? `<span class="user-rating-pill ml-1">${p.rating} ★</span>` : '';
-                return `<div class="flex gap-2 items-start p-2 bg-white/5 rounded-xl border border-white/5">
-                    <img src="${p.avatar_url}" class="w-7 h-7 rounded-full object-cover ${isAuth ? 'creator-glow' : ''}">
-                    <div class="flex-1 min-w-0">
-                        <div class="flex items-center gap-1"><p class="text-[8px] font-black text-purple-400 uppercase truncate">${isAuth ? 'LAHIRU SEHAN' : p.display_name}</p>${r}</div>
-                        <p class="text-[11px] text-slate-200">${c.content}</p>
-                    </div>
-                </div>`;
-            }).join('') || '<div class="text-center py-2 opacity-10 text-[8px] uppercase">No comments yet.</div>';
-        } catch(e){}
+    v();
+    const box = document.getElementById(`chapter-comments-inline-${id}`);
+    if(!box) return;
+    box.classList.toggle('hidden');
+    if(!box.classList.contains('hidden')) {
+        loadChapterComments(id);
     }
+};
+
+async function loadChapterComments(id) {
+    const list = document.getElementById(`list-${id}`);
+    if(!list) return;
+    list.innerHTML = '<div class="text-center py-4 opacity-10 text-[8px] uppercase">Summoning...</div>';
+    try {
+        const { data } = await supabase.from('chapter_comments').select('*, profiles(display_name, avatar_url, email, rating)').eq('chapter_id', id).order('created_at', { ascending: false });
+        list.innerHTML = (data || []).map(c => {
+            const p = c.profiles || {};
+            const isAuth = p.email === AUTHOR_EMAIL;
+            const r = p.rating ? `<span class="user-rating-pill ml-1">${p.rating} ★</span>` : '';
+            return `<div class="flex gap-3 items-start p-3 bg-white/5 rounded-xl border border-white/5 animate-in slide-in-from-bottom-2">
+                <img src="${p.avatar_url}" class="w-8 h-8 rounded-full object-cover ${isAuth ? 'creator-glow' : ''}">
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-1"><p class="text-[9px] font-black text-purple-400 uppercase truncate">${isAuth ? 'LAHIRU SEHAN' : p.display_name}</p>${r}</div>
+                    <p class="text-[11px] text-slate-200 leading-snug mt-0.5">${c.content}</p>
+                </div>
+            </div>`;
+        }).join('') || '<div class="text-center py-4 opacity-10 text-[8px] uppercase tracking-widest">The archives are empty. Be the first to speak.</div>';
+    } catch(e){}
+}
+
+window.postChapterComment = async (id) => {
+    const input = document.getElementById(`chapter-input-${id}`);
+    const content = input?.value?.trim();
+    if(!content) return;
+    v(30);
+    try {
+        const { error } = await supabase.from('chapter_comments').insert({ chapter_id: id, user_id: currentUser.id, content });
+        if(error) throw error;
+        input.value = '';
+        loadChapterComments(id);
+    } catch(e){ alert("Failed to post comment. Ensure SQL is run."); }
 };
 
 window.likeChapterInline = async (id) => {
     v(40);
-    try { await supabase.from('chapter_likes').insert({ chapter_id: id, user_id: currentUser.id }); loadChapters(); } catch(e){}
+    try {
+        const { error } = await supabase.from('chapter_likes').insert({ chapter_id: id, user_id: currentUser.id });
+        if(error && error.code === '23505') {
+            // Already liked, handle as unlike or just ignore
+        }
+        loadChapters();
+    } catch(e){}
 };
 
 window.openReader = (id) => {
     currentChapterId = id;
     window.showView('reader-view');
     const container = document.getElementById('reader-pages');
+    const progress = document.getElementById('reader-progress-bar');
     if(!container) return;
-    container.innerHTML = '<div class="p-20 text-center opacity-10 text-[9px] uppercase tracking-[1em]">Summoning...</div>';
+    container.innerHTML = '<div class="p-20 text-center opacity-10 text-[9px] uppercase tracking-[1em]">Summoning Portal...</div>';
+    
     setTimeout(() => {
         container.innerHTML = '';
         for(let i=1; i<=10; i++) {
             const img = document.createElement('img');
             img.src = `https://picsum.photos/seed/fh${id}_${i}/800/1200`;
-            img.className = "manga-page mb-1 w-full shadow-2xl bg-slate-900";
+            img.className = "w-full shadow-2xl bg-slate-900 mb-1";
             container.appendChild(img);
         }
     }, 400);
+
+    const readerView = document.getElementById('reader-view');
+    readerView.onscroll = () => {
+        const winScroll = readerView.scrollTop;
+        const height = readerView.scrollHeight - readerView.clientHeight;
+        const scrolled = (winScroll / height) * 100;
+        if(progress) progress.style.width = scrolled + "%";
+    };
 };
 
 window.showUserProfile = async (userId) => {
@@ -335,8 +320,8 @@ async function loadReaders() {
                     </div>
                     ${!isSelf ? `<button onclick="toggleChat('${r.id}')" class="bg-blue-600 px-4 py-2 rounded-lg text-[9px] font-black uppercase text-white active:scale-95">Message</button>` : ''}
                 </div>
-                <div id="chat-box-${r.id}" class="expandable-content mt-4 border-t border-white/5 bg-black/40">
-                    <div class="h-[300px] flex flex-col p-4">
+                <div id="chat-box-${r.id}" class="hidden mt-4 border-t border-white/5 pt-4">
+                    <div class="h-[300px] flex flex-col">
                         <div id="messages-list-${r.id}" class="flex-1 overflow-y-auto space-y-3 mb-3 pr-2 scroll-container"></div>
                         <div class="flex gap-2">
                             <input id="chat-input-${r.id}" type="text" placeholder="Type message..." class="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-[10px] text-white outline-none">
@@ -350,13 +335,13 @@ async function loadReaders() {
 }
 
 window.toggleChat = (userId) => {
+    v();
     const box = document.getElementById(`chat-box-${userId}`);
-    const card = document.getElementById(`user-card-${userId}`);
-    if(!box || !card) return;
-    const isOpening = !card.classList.contains('expanded');
-    document.querySelectorAll('.glass-panel').forEach(c => c.classList.remove('expanded'));
-    if(isOpening) {
-        card.classList.add('expanded');
+    if(!box) return;
+    const isVisible = !box.classList.contains('hidden');
+    document.querySelectorAll('[id^="chat-box-"]').forEach(el => el.classList.add('hidden'));
+    if(!isVisible) {
+        box.classList.remove('hidden');
         activeChatId = userId;
         loadMessagesInline(userId);
     } else {
@@ -370,7 +355,7 @@ async function loadMessagesInline(userId) {
     try {
         const { data } = await supabase.from('messages').select('*').or(`and(sender_id.eq.${currentUser.id},receiver_id.eq.${userId}),and(sender_id.eq.${userId},receiver_id.eq.${currentUser.id})`).order('created_at', { ascending: true });
         list.innerHTML = (data || []).map(m => `
-            <div class="flex ${m.sender_id === currentUser.id ? 'justify-end' : 'justify-start'}">
+            <div class="flex ${m.sender_id === currentUser.id ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-1">
                 <div class="max-w-[85%] px-3 py-1.5 rounded-xl ${m.sender_id === currentUser.id ? 'bg-blue-600 text-white' : 'bg-white/10 text-slate-200'} text-[10px]">
                     ${m.content}
                 </div>
@@ -392,6 +377,7 @@ window.sendMessage = async (userId) => {
 };
 
 window.setRating = (num) => {
+    v();
     currentRating = num;
     document.querySelectorAll('.star').forEach((s, i) => { 
         s.style.opacity = i < num ? '1' : '0.3'; 
@@ -430,11 +416,6 @@ function updateUI() {
         img.src = profileData.avatar_url;
         if(isAuth) img.classList.add('creator-glow');
     });
-    
-    const setUname = document.getElementById('settings-user-name');
-    const setRole = document.getElementById('settings-role-label');
-    if(setUname) setUname.innerText = name;
-    if(setRole) setRole.innerText = isAuth ? 'AUTHOR' : 'READER';
 }
 
 window.updateProfile = async function() {
@@ -451,14 +432,6 @@ window.updateProfile = async function() {
         alert("Profile Saved.");
         window.toggleModal('settings-modal');
     } catch(e){ alert("Error saving."); }
-};
-
-window.appSettings = {
-    toggleParticles: (val) => { 
-        const c = document.getElementById('particle-canvas');
-        if(c) c.style.opacity = val ? '1' : '0'; 
-    },
-    clearCache: () => { localStorage.clear(); location.reload(); }
 };
 
 window.shareStory = () => {
