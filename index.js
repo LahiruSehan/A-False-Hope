@@ -8,13 +8,22 @@ const SUPABASE_KEY = 'sb_publishable_zaDorGnE20zlG805wQ3SXA_81UbgmLY';
 const supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
 
 let currentUser = null, profileData = null, navHistory = ['home-view'], currentRating = 0;
-let chapterSort = 'new'; 
+let chapterSort = 'old'; // Changed default to 'old' as requested
 let homeTab = 'leaderboard';
 let currentChapterId = null;
 let activeChatId = null;
+let deferredPrompt = null; // For PWA Install
 
 // Helper: Haptic Vibration
 function v(ms = 10) { if (window.hapticEnabled !== false && navigator.vibrate) navigator.vibrate(ms); }
+
+// Initialize PWA Install Prompt
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    const btn = document.getElementById('install-app-btn');
+    if(btn) btn.classList.remove('hidden');
+});
 
 function initParticles() {
     const canvas = document.getElementById('particle-canvas');
@@ -137,6 +146,7 @@ async function loadHomeContent() {
         c.innerHTML = (data || []).map((u, i) => {
             const isAuth = u.email === APP_CONFIG.authorEmail;
             const isFirst = u.email === APP_CONFIG.firstReaderEmail;
+            const isCoWriter = u.email === APP_CONFIG.coWriterEmail;
             
             let name = u.display_name;
             if (isAuth) name = APP_CONFIG.author.toUpperCase();
@@ -146,12 +156,16 @@ async function loadHomeContent() {
             let glowClass = '';
             if (isAuth) glowClass = 'creator-glow';
             else if (isFirst) glowClass = 'first-reader-glow';
+            else if (isCoWriter) glowClass = 'co-writer-glow';
             
             let tagHTML = 'READER';
             if (isAuth) tagHTML = '<span class="author-tag">AUTHOR</span>';
             else if (isFirst) tagHTML = '<span class="first-reader-tag">FIRST READER</span>';
+            else if (isCoWriter) tagHTML = '<span class="co-writer-tag">CO-WRITER (EMOTIONS)</span>';
 
-            const nameColor = isFirst ? 'text-cyan-400' : 'text-white';
+            let nameColor = 'text-white';
+            if (isFirst) nameColor = 'text-cyan-400';
+            if (isCoWriter) nameColor = 'text-fuchsia-400';
 
             return `
             <div class="flex items-center gap-3 p-3 bg-white/5 rounded-xl mb-2 cursor-pointer" onclick="showUserProfile('${u.id}')">
@@ -246,6 +260,7 @@ async function loadChapterComments(id) {
             const p = c.profiles || {};
             const isAuth = p.email === APP_CONFIG.authorEmail;
             const isFirst = p.email === APP_CONFIG.firstReaderEmail;
+            const isCoWriter = p.email === APP_CONFIG.coWriterEmail;
             
             let name = p.display_name;
             if (isAuth) name = APP_CONFIG.author.toUpperCase();
@@ -255,8 +270,12 @@ async function loadChapterComments(id) {
             let glowClass = '';
             if (isAuth) glowClass = 'creator-glow';
             else if (isFirst) glowClass = 'first-reader-glow';
+            else if (isCoWriter) glowClass = 'co-writer-glow';
 
-            const nameColor = isAuth ? 'text-purple-400' : (isFirst ? 'text-cyan-400' : 'text-slate-200');
+            let nameColor = 'text-slate-200';
+            if (isAuth) nameColor = 'text-purple-400';
+            else if (isFirst) nameColor = 'text-cyan-400';
+            else if (isCoWriter) nameColor = 'text-fuchsia-400';
 
             return `<div class="flex gap-3 items-start p-3 bg-white/5 rounded-xl border border-white/5 animate-in slide-in-from-bottom-2">
                 <img src="${p.avatar_url}" class="w-8 h-8 rounded-full object-cover ${glowClass}">
@@ -328,6 +347,7 @@ window.showUserProfile = async (userId) => {
         
         const isAuth = data.email === APP_CONFIG.authorEmail;
         const isFirst = data.email === APP_CONFIG.firstReaderEmail;
+        const isCoWriter = data.email === APP_CONFIG.coWriterEmail;
         
         let name = data.display_name;
         if (isAuth) name = APP_CONFIG.author.toUpperCase();
@@ -336,11 +356,15 @@ window.showUserProfile = async (userId) => {
         const content = document.getElementById('user-detail-content');
         if(!content) return;
         
-        let glowClass = isAuth ? 'creator-glow' : (isFirst ? 'first-reader-glow' : 'border border-purple-500/30');
+        let glowClass = 'border border-purple-500/30';
+        if (isAuth) glowClass = 'creator-glow';
+        else if (isFirst) glowClass = 'first-reader-glow';
+        else if (isCoWriter) glowClass = 'co-writer-glow';
         
         let roleTag = '<span class="text-[8px] text-purple-400 font-bold uppercase">READER</span>';
         if (isAuth) roleTag = '<span class="author-tag">AUTHOR & CREATOR</span>';
         else if (isFirst) roleTag = '<span class="first-reader-tag">FIRST READER</span>';
+        else if (isCoWriter) roleTag = '<span class="co-writer-tag">CO-WRITER (EMOTIONS)</span>';
 
         content.innerHTML = `
             <div class="relative inline-block"><img src="${data.avatar_url}" class="w-24 h-24 rounded-full mx-auto object-cover ${glowClass}"></div>
@@ -363,6 +387,7 @@ async function loadReaders() {
         c.innerHTML = (data || []).map(r => {
             const isAuth = r.email === APP_CONFIG.authorEmail;
             const isFirst = r.email === APP_CONFIG.firstReaderEmail;
+            const isCoWriter = r.email === APP_CONFIG.coWriterEmail;
             
             let name = r.display_name;
             if (isAuth) name = APP_CONFIG.author.toUpperCase();
@@ -370,12 +395,19 @@ async function loadReaders() {
             const rating = r.rating ? `<span class="user-rating-pill">${r.rating} ★</span>` : '';
             const isSelf = r.id === currentUser.id;
             
-            let glowClass = isAuth ? 'creator-glow' : (isFirst ? 'first-reader-glow' : '');
+            let glowClass = '';
+            if (isAuth) glowClass = 'creator-glow';
+            else if (isFirst) glowClass = 'first-reader-glow';
+            else if (isCoWriter) glowClass = 'co-writer-glow';
+            
             let roleText = 'READER';
             if (isAuth) roleText = 'AUTHOR';
             else if (isFirst) roleText = 'FIRST READER';
+            else if (isCoWriter) roleText = 'CO-WRITER';
             
-            const roleColor = isFirst ? 'text-cyan-400' : 'text-purple-400';
+            let roleColor = 'text-purple-400';
+            if (isFirst) roleColor = 'text-cyan-400';
+            else if (isCoWriter) roleColor = 'text-fuchsia-400';
 
             return `
             <div id="user-card-${r.id}" class="glass-panel p-4 rounded-xl flex flex-col mb-3">
@@ -468,6 +500,7 @@ function updateUI() {
     if (!profileData) return;
     const isAuth = profileData.email === APP_CONFIG.authorEmail;
     const isFirst = profileData.email === APP_CONFIG.firstReaderEmail;
+    const isCoWriter = profileData.email === APP_CONFIG.coWriterEmail;
     
     let name = profileData.display_name;
     if (isAuth) name = APP_CONFIG.author.toUpperCase();
@@ -479,11 +512,14 @@ function updateUI() {
     let roleText = 'READER';
     if (isAuth) roleText = 'AUTHOR & CREATOR';
     else if (isFirst) roleText = 'FIRST READER';
+    else if (isCoWriter) roleText = 'CO-WRITER (EMOTIONS)';
     
-    if (roleEl) roleEl.innerText = roleText;
-    if (roleEl && isFirst) {
-        roleEl.classList.remove('text-purple-400');
-        roleEl.classList.add('text-cyan-400');
+    if (roleEl) {
+        roleEl.innerText = roleText;
+        roleEl.className = 'text-[9px] font-bold uppercase tracking-tighter';
+        if (isFirst) roleEl.classList.add('text-cyan-400');
+        else if (isCoWriter) roleEl.classList.add('text-fuchsia-400');
+        else roleEl.classList.add('text-purple-400');
     }
     
     const navPill = document.getElementById('nav-rating-pill');
@@ -495,8 +531,10 @@ function updateUI() {
 
     document.querySelectorAll('#nav-user-avatar, #settings-avatar').forEach(img => {
         img.src = profileData.avatar_url;
+        img.classList.remove('creator-glow', 'first-reader-glow', 'co-writer-glow');
         if(isAuth) img.classList.add('creator-glow');
         else if(isFirst) img.classList.add('first-reader-glow');
+        else if(isCoWriter) img.classList.add('co-writer-glow');
     });
 }
 
@@ -522,6 +560,16 @@ window.shareStory = () => {
     else { navigator.clipboard.writeText(url); alert("Copied!"); }
 };
 
+window.installApp = async () => {
+    if(deferredPrompt) {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if(outcome === 'accepted') deferredPrompt = null;
+    } else {
+        alert("App is already installed or not supported on this browser.");
+    }
+};
+
 const recognitionData = {
     'MINASHA': { text: "Inspired the creation and personality of Viyona — becoming the heart behind her emotions, elegance, and charm — and contributed romantic moment ideas that shaped some of the story’s most beautiful emotional and stylistic scenes. 🌙💞✨", icon: "❤️" },
     'AROSHA': { text: "Early reviewer and first-ever reader of HOPE 2877 (BOOK) & the first to review every manga page as it’s created, providing fresh perspectives, inspirational suggestions and deep story-strengthening feedback throughout the entire creative process. 🌌✨", icon: "🔥" }
@@ -542,6 +590,10 @@ window.openRecognition = (key) => {
 document.addEventListener('DOMContentLoaded', () => { 
     initParticles(); 
     checkAuth();
+    // Set default sort to Old
+    document.getElementById('sort-new').classList.remove('active');
+    document.getElementById('sort-old').classList.add('active');
+
     const loginBtn = document.getElementById('google-login-btn');
     if(loginBtn) {
         loginBtn.addEventListener('click', () => {

@@ -3,7 +3,8 @@ export const APP_CONFIG = {
     tagline: "The Eldritch Chronicles",
     author: "Lahiru Sehan",
     authorEmail: "lamusicstudio831@gmail.com",
-    firstReaderEmail: "hackeraro2005@gmail.com", // Added First Reader
+    firstReaderEmail: "hackeraro2005@gmail.com",
+    coWriterEmail: "chamalikarunarathne167@gmail.com", // Added Co-Writer
     // This dynamically gets the current URL. 
     // If you are on hope2877.online, it uses that. 
     // If you are on github.io, it uses that.
