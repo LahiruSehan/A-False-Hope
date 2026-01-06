@@ -11,6 +11,7 @@ let currentUser = null, profileData = null, navHistory = ['home-view'], currentR
 let chapterSort = 'new', homeTab = 'leaderboard', isMusicPlaying = false;
 let currentChapterId = null;
 let activeChatId = null;
+let messageSubscription = null;
 
 const LEVEL_CONFIG = [
     { level: 1, xp: 0, name: 'Drifter' }, { level: 2, xp: 10, name: 'Inmate' },
@@ -38,9 +39,27 @@ async function checkAuth() {
         currentUser = user;
         await syncProfile();
         await handleCheckIn();
+        setupRealtime();
         window.showView('home-view');
         startStatsLoop();
     } else { window.showView('login-view'); }
+}
+
+function setupRealtime() {
+    // Live Messaging Subscription
+    if (messageSubscription) messageSubscription.unsubscribe();
+    messageSubscription = supabase
+        .channel('public:messages')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
+            const msg = payload.new;
+            if (msg.receiver_id === currentUser.id || msg.sender_id === currentUser.id) {
+                const partnerId = msg.sender_id === currentUser.id ? msg.receiver_id : msg.sender_id;
+                if (activeChatId === partnerId) {
+                    loadMessagesInline(partnerId);
+                }
+            }
+        })
+        .subscribe();
 }
 
 async function syncProfile() {
@@ -197,8 +216,79 @@ async function loadChapters() {
     if (chapterSort === 'top') chapters.sort((a,b) => b.likes - a.likes);
     else if (chapterSort === 'old') chapters.sort((a,b) => a.id - b.id);
     else chapters.sort((a,b) => b.id - a.id);
-    container.innerHTML = chapters.map(c => `<div class="glass-panel p-4 rounded-xl border border-white/5 flex justify-between items-center cursor-pointer active:scale-[0.98] transition-all" onclick="openReader(${c.id})"><div class="flex items-center gap-4"><span class="bold-italic text-xl text-purple-400 opacity-20">${c.id}</span><p class="text-[11px] font-black text-white uppercase tracking-widest">Chapter ${c.id}</p></div><div class="flex gap-3">${c.bookmarked ? '<span class="text-xs">🔖</span>' : ''}<span class="text-[9px] font-black text-slate-600">♥ ${c.likes}</span></div></div>`).join('');
+    container.innerHTML = chapters.map(c => `
+        <div id="chapter-card-${c.id}" class="glass-panel rounded-xl border border-white/5 overflow-hidden active:scale-[0.99] transition-all">
+            <div class="p-4 flex justify-between items-center">
+                <div class="flex items-center gap-4 cursor-pointer" onclick="openReader(${c.id})">
+                    <span class="bold-italic text-xl text-purple-400 opacity-20">${c.id}</span>
+                    <p class="text-[11px] font-black text-white uppercase tracking-widest">Chapter ${c.id}</p>
+                </div>
+                <div class="flex gap-4 items-center">
+                    <button onclick="likeChapterInline(${c.id})" class="text-[10px] text-red-500 font-black">♥ ${c.likes}</button>
+                    <button onclick="toggleChapterInlineComments(${c.id})" class="text-[10px] text-slate-400 font-black">💬</button>
+                    ${c.bookmarked ? '<span class="text-xs">🔖</span>' : ''}
+                </div>
+            </div>
+            <div id="chapter-comments-inline-${c.id}" class="expandable-content bg-black/40">
+                <div class="p-4 space-y-3">
+                    <div id="chapter-comments-list-${c.id}" class="max-h-[200px] overflow-y-auto space-y-2 scroll-container">
+                        <p class="text-[8px] opacity-20 text-center uppercase tracking-widest py-4">Loading echoes...</p>
+                    </div>
+                    <div class="flex gap-2 pt-2 border-t border-white/5">
+                        <input id="chapter-comment-input-${c.id}" type="text" placeholder="Add an echo..." class="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-[9px] text-white outline-none">
+                        <button onclick="submitChapterCommentInline(${c.id})" class="bg-purple-600 px-3 py-1 rounded-lg text-[8px] font-black uppercase">Post</button>
+                    </div>
+                </div>
+            </div>
+        </div>`).join('');
 }
+
+window.likeChapterInline = async (id) => {
+    v(30);
+    const { error } = await supabase.from('chapter_likes').insert({ chapter_id: id, user_id: currentUser.id });
+    if (!error) loadChapters();
+};
+
+window.toggleChapterInlineComments = async (id) => {
+    v();
+    const card = document.getElementById(`chapter-card-${id}`);
+    const isExpanded = card.classList.contains('expanded');
+    
+    // Close others
+    document.querySelectorAll('[id^="chapter-card-"]').forEach(c => c.classList.remove('expanded'));
+    
+    if (!isExpanded) {
+        card.classList.add('expanded');
+        loadChapterCommentsInline(id);
+    }
+};
+
+async function loadChapterCommentsInline(id) {
+    const list = document.getElementById(`chapter-comments-list-${id}`);
+    const { data } = await supabase.from('chapter_comments').select('*, profiles(display_name, avatar_url)').eq('chapter_id', id).order('created_at', { ascending: false });
+    if (!data) return;
+    list.innerHTML = data.map(c => `
+        <div class="flex gap-2 items-start opacity-80">
+            <img src="${c.profiles.avatar_url}" class="w-5 h-5 rounded-full object-cover">
+            <div class="flex-1">
+                <p class="text-[7px] font-black text-purple-400 uppercase">${c.profiles.display_name}</p>
+                <p class="text-[9px] text-slate-300 leading-tight">${c.content}</p>
+            </div>
+        </div>`).join('') || '<p class="text-[8px] opacity-20 text-center uppercase tracking-widest py-4">Void</p>';
+    list.scrollTop = 0;
+}
+
+window.submitChapterCommentInline = async (id) => {
+    const input = document.getElementById(`chapter-comment-input-${id}`);
+    const content = input.value.trim();
+    if(!content) return;
+    const { error } = await supabase.from('chapter_comments').insert({ chapter_id: id, user_id: currentUser.id, content });
+    if(!error) {
+        input.value = '';
+        loadChapterCommentsInline(id);
+        addXP(3);
+    }
+};
 
 window.openReader = async (id) => {
     currentChapterId = id;
@@ -282,10 +372,11 @@ window.toggleExpandChat = function(userId) {
 
 async function loadMessagesInline(userId) {
     const container = document.getElementById(`chat-bubbles-${userId}`);
+    if (!container) return;
     const { data } = await supabase.from('messages').select('*').or(`and(sender_id.eq.${currentUser.id},receiver_id.eq.${userId}),and(sender_id.eq.${userId},receiver_id.eq.${currentUser.id})`).order('created_at', { ascending: true });
     if (!data) return;
     container.innerHTML = data.map(m => `
-        <div class="flex ${m.sender_id === currentUser.id ? 'justify-end' : 'justify-start'}">
+        <div class="flex ${m.sender_id === currentUser.id ? 'justify-end' : 'justify-start'} animate-in slide-in-from-bottom-2 duration-300">
             <div class="max-w-[85%] px-3 py-1.5 rounded-xl ${m.sender_id === currentUser.id ? 'bg-purple-600 text-white shadow-lg' : 'bg-white/10 text-slate-300'} text-[10px] font-medium mb-1">
                 ${m.content}
             </div>
@@ -299,7 +390,10 @@ window.sendMessageInline = async function(userId) {
     if (!content) return;
     v(20);
     const { error } = await supabase.from('messages').insert({ sender_id: currentUser.id, receiver_id: userId, content });
-    if (!error) { input.value = ''; loadMessagesInline(userId); }
+    if (!error) { 
+        input.value = ''; 
+        // No need to manually load, setupRealtime handles the INSERT trigger
+    }
 };
 
 async function loadReaders() {
