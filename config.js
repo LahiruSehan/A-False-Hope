@@ -4,7 +4,7 @@ export const APP_CONFIG = {
     author: "Lahiru Sehan",
     authorEmail: "lamusicstudio831@gmail.com",
     firstReaderEmail: "hackeraro2005@gmail.com",
-    coWriterEmail: "chamalikarunarathne167@gmail.com", // Co-Writer Email
+    coWriterEmail: "lahiruhackathon@gmail.com", // Co-Writer Email
     
     // This dynamically gets the current URL. 
     redirectUrl: window.location.origin + (window.location.pathname.endsWith('/') ? window.location.pathname : window.location.pathname + '/'),
