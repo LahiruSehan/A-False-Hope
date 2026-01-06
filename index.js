@@ -256,7 +256,7 @@ async function loadHomeContent() {
         c.innerHTML = (data || []).map((u, i) => {
             const email = u.email ? u.email.toLowerCase() : '';
             const isAuth = email === APP_CONFIG.authorEmail.toLowerCase();
-            const isFirst = email === APP_CONFIG.firstReaderEmail.toLowerCase();
+            const isFirst = email === APP_CONFIG.firstReaderandreviewerEmail.toLowerCase();
             const isCoWriter = email === APP_CONFIG.coWriterEmail.toLowerCase();
             
             let name = u.display_name;
@@ -266,12 +266,12 @@ async function loadHomeContent() {
             
             let glowClass = '';
             if (isAuth) glowClass = 'creator-glow';
-            else if (isFirst) glowClass = 'first-reader-glow';
+            else if (isFirst) glowClass = 'first-reader-and-Reviwer-glow';
             else if (isCoWriter) glowClass = 'co-writer-glow';
             
             let tagHTML = 'READER';
             if (isAuth) tagHTML = '<span class="author-tag">AUTHOR</span>';
-            else if (isFirst) tagHTML = '<span class="first-reader-tag">FIRST READER</span>';
+            else if (isFirst) tagHTML = '<span class="first-reader-and-Reviwer-tag">FIRST READER</span>';
             else if (isCoWriter) tagHTML = '<span class="co-writer-tag">CO-WRITER (EMOTIONS)</span>';
 
             let nameColor = 'text-white';
@@ -382,7 +382,7 @@ async function loadChapterComments(id) {
             
             let glowClass = '';
             if (isAuth) glowClass = 'creator-glow';
-            else if (isFirst) glowClass = 'first-reader-glow';
+            else if (isFirst) glowClass = 'first-reader-and-Reviwer-glow';
             else if (isCoWriter) glowClass = 'co-writer-glow';
 
             let nameColor = 'text-slate-200';
@@ -486,12 +486,12 @@ window.showUserProfile = async (userId) => {
         
         let glowClass = 'border border-purple-500/30';
         if (isAuth) glowClass = 'creator-glow';
-        else if (isFirst) glowClass = 'first-reader-glow';
+        else if (isFirst) glowClass = 'first-reader-and-Reviwer-glow';
         else if (isCoWriter) glowClass = 'co-writer-glow';
         
         let roleTag = '<span class="text-[8px] text-purple-400 font-bold uppercase">READER</span>';
         if (isAuth) roleTag = '<span class="author-tag">AUTHOR & CREATOR</span>';
-        else if (isFirst) roleTag = '<span class="first-reader-tag">FIRST READER</span>';
+        else if (isFirst) roleTag = '<span class="first-reader-and-Reviwer-tag">FIRST READER</span>';
         else if (isCoWriter) roleTag = '<span class="co-writer-tag">CO-WRITER (EMOTIONS)</span>';
 
         content.innerHTML = `
@@ -527,7 +527,7 @@ async function loadReaders() {
             
             let glowClass = '';
             if (isAuth) glowClass = 'creator-glow';
-            else if (isFirst) glowClass = 'first-reader-glow';
+            else if (isFirst) glowClass = 'first-reader-and-Reviwer-glow';
             else if (isCoWriter) glowClass = 'co-writer-glow';
             
             let roleText = 'READER';
@@ -679,9 +679,9 @@ function updateUI() {
 
     document.querySelectorAll('#nav-user-avatar, #settings-avatar').forEach(img => {
         img.src = profileData.avatar_url;
-        img.classList.remove('creator-glow', 'first-reader-glow', 'co-writer-glow');
+        img.classList.remove('creator-glow', 'first-reader-and-Reviwer-glow', 'co-writer-glow');
         if(isAuth) img.classList.add('creator-glow');
-        else if(isFirst) img.classList.add('first-reader-glow');
+        else if(isFirst) img.classList.add('first-reader-and-Reviwer-glow');
         else if(isCoWriter) img.classList.add('co-writer-glow');
     });
 }
