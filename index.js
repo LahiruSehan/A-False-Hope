@@ -8,6 +8,7 @@ let currentUser = null;
 let profileData = null;
 let navigationHistory = ['home-view'];
 let activeChatUserId = null;
+let currentCommentChapterId = null;
 
 const TOTAL_CHAPTERS = 30;
 const LEVEL_CONFIG = [
@@ -52,7 +53,8 @@ window.showView = function(viewId, pushHistory = true) {
     }
 
     if (viewId === 'chapters-view') loadChapters();
-    if (viewId === 'readers-view') loadReaders();
+    if (viewId === 'readers-view') loadFriends();
+    if (viewId === 'profile-view') fillProfileData();
 }
 
 window.goBack = function() {
@@ -92,9 +94,9 @@ function getLevelInfo(xp) {
         if (xp >= conf.xp) current = conf;
         else break;
     }
-    const next = LEVEL_CONFIG.find(c => c.level === current.level + 1) || current;
+    const next = LEVEL_CONFIG.find(c => c.level === current.level + 1) || { level: 10, xp: 4000 };
     const progress = current.level === 10 ? 100 : ((xp - current.xp) / (next.xp - current.xp)) * 100;
-    return { ...current, progress };
+    return { ...current, progress, nextXp: next.xp };
 }
 
 function updateXPUI() {
@@ -106,39 +108,60 @@ function updateXPUI() {
     document.querySelectorAll('.level-label').forEach(el => el.innerText = `LVL ${info.level}`);
     document.querySelectorAll('.rank-label').forEach(el => el.innerText = info.name.toUpperCase());
     document.documentElement.style.setProperty('--aura-color', info.color);
+    
+    // Update XP text in profile
+    const xpText = document.getElementById('profile-xp-text');
+    if (xpText) xpText.innerText = `${profileData.xp} / ${info.nextXp} XP`;
+}
+
+// XP Guide In Settings
+function renderXPGuide() {
+    const container = document.getElementById('xp-guide-container');
+    if (!container) return;
+    container.innerHTML = LEVEL_CONFIG.map(l => `
+        <div class="flex items-center justify-between p-3 glass-panel rounded-xl border border-white/5">
+            <div class="flex items-center gap-3">
+                <span class="text-[8px] font-black px-1.5 py-0.5 rounded-sm" style="background-color: ${l.color}; color: black;">LVL ${l.level}</span>
+                <span class="text-[9px] font-bold text-white uppercase tracking-widest">${l.name}</span>
+            </div>
+            <span class="text-[8px] text-slate-500 font-bold">${l.xp} XP</span>
+        </div>
+    `).join('');
 }
 
 // Chapters Engagement
 async function loadChapters() {
     const container = document.getElementById('chapters-list-mobile');
-    container.innerHTML = '<div class="text-center p-10 opacity-30">Summoning scrolls...</div>';
+    container.innerHTML = '<div class="text-center p-10 opacity-30 animate-pulse font-impact tracking-widest">SUMMONING SCROLLS...</div>';
     
-    const { data: likes } = await supabase.from('chapter_likes').select('chapter_id');
+    // Get stats for all chapters at once
+    const { data: likes } = await supabase.from('chapter_likes').select('chapter_id, user_id');
     const { data: comments } = await supabase.from('chapter_comments').select('chapter_id');
 
     let html = '';
     for (let i = 1; i <= TOTAL_CHAPTERS; i++) {
-        const likeCount = likes?.filter(l => l.chapter_id === i).length || 0;
+        const chapterLikes = likes?.filter(l => l.chapter_id === i) || [];
+        const likeCount = chapterLikes.length;
         const commCount = comments?.filter(c => c.chapter_id === i).length || 0;
-        const hasLiked = likes?.some(l => l.chapter_id === i && l.user_id === currentUser.id);
+        const hasLiked = chapterLikes.some(l => l.user_id === currentUser.id);
 
         html += `
-            <div class="glass-panel p-6 rounded-[2rem] flex items-center justify-between border border-white/5 group">
-                <div class="flex items-center gap-4 flex-1" onclick="openReader(${i})">
-                    <span class="font-impact text-2xl aura-text opacity-40">${i}</span>
+            <div class="glass-panel p-6 rounded-[2rem] flex items-center justify-between border border-white/5 group transition-all duration-300">
+                <div class="flex items-center gap-6 flex-1 cursor-pointer" onclick="openReader(${i})">
+                    <span class="font-impact text-3xl aura-text opacity-40 group-hover:opacity-100 transition-opacity">${i}</span>
                     <div class="leading-tight">
-                        <h4 class="font-bold text-sm text-white">CHAPTER ${i}</h4>
-                        <p class="text-[8px] text-slate-500 font-black uppercase">Click to descend</p>
+                        <h4 class="font-bold text-sm text-white tracking-widest">CHAPTER ${i}</h4>
+                        <p class="text-[8px] text-slate-500 font-black uppercase tracking-[0.2em]">Click to descend</p>
                     </div>
                 </div>
-                <div class="flex items-center gap-3">
-                    <button onclick="toggleLike(${i})" class="flex flex-col items-center gap-1 group/btn">
-                        <span class="text-lg ${hasLiked ? 'text-red-500' : 'text-slate-600'}">♥</span>
-                        <span class="text-[7px] font-bold text-slate-500">${likeCount}</span>
+                <div class="flex items-center gap-5">
+                    <button onclick="toggleLike(${i})" class="btn-interact flex flex-col items-center gap-1 group/btn">
+                        <span class="text-2xl transition-all ${hasLiked ? 'liked-glow text-red-500' : 'text-slate-600'}">♥</span>
+                        <span class="text-[8px] font-black text-slate-500">${likeCount}</span>
                     </button>
-                    <button onclick="openComments(${i})" class="flex flex-col items-center gap-1">
-                        <span class="text-lg text-slate-600">💬</span>
-                        <span class="text-[7px] font-bold text-slate-500">${commCount}</span>
+                    <button onclick="openComments(${i})" class="btn-interact flex flex-col items-center gap-1">
+                        <span class="text-2xl text-slate-600 hover:text-white transition-colors">💬</span>
+                        <span class="text-[8px] font-black text-slate-500">${commCount}</span>
                     </button>
                 </div>
             </div>`;
@@ -157,24 +180,95 @@ window.toggleLike = async function(id) {
     loadChapters();
 }
 
-// Social & Messaging
-async function loadReaders() {
-    const container = document.getElementById('readers-list');
-    const { data } = await supabase.from('profiles').select('*').neq('id', currentUser.id).order('xp', { ascending: false });
-    
-    if (!data) return;
-    container.innerHTML = data.map(r => `
-        <div class="glass-panel p-4 rounded-2xl flex items-center justify-between border border-white/5">
-            <div class="flex items-center gap-3">
-                <img src="${r.avatar_url}" class="w-10 h-10 rounded-full border border-white/10">
-                <div>
-                    <h5 class="text-xs font-bold text-white uppercase">${r.display_name}</h5>
-                    <p class="text-[8px] text-slate-500 font-black">LVL ${r.level} // ${getLevelInfo(r.xp).name}</p>
-                </div>
+// Comments Logic
+window.openComments = async function(chapterId) {
+    currentCommentChapterId = chapterId;
+    document.getElementById('comment-title').innerText = `CHAPTER ${chapterId} ECHOES`;
+    window.toggleModal('comments-modal');
+    loadChapterComments(chapterId);
+}
+
+async function loadChapterComments(chapterId) {
+    const container = document.getElementById('comments-container');
+    container.innerHTML = '<div class="text-center py-10 opacity-30 text-[10px] tracking-widest">READING ECHOES...</div>';
+
+    const { data, error } = await supabase
+        .from('chapter_comments')
+        .select('*, profiles(display_name, avatar_url)')
+        .eq('chapter_id', chapterId)
+        .order('created_at', { ascending: false });
+
+    if (error || !data || data.length === 0) {
+        container.innerHTML = '<div class="text-center py-10 opacity-20 text-[8px] tracking-[0.4em] uppercase">No echoes yet in this void</div>';
+        return;
+    }
+
+    container.innerHTML = data.map(c => `
+        <div class="glass-panel p-4 rounded-2xl border border-white/5">
+            <div class="flex items-center gap-2 mb-2">
+                <img src="${c.profiles.avatar_url}" class="w-5 h-5 rounded-full border border-white/10">
+                <span class="text-[9px] font-black text-white uppercase">${c.profiles.display_name}</span>
             </div>
-            <button onclick="startChat('${r.id}', '${r.display_name}')" class="px-4 py-2 bg-white/5 rounded-full text-[8px] font-black uppercase">Whisper</button>
+            <p class="text-[11px] text-slate-300 leading-relaxed">${c.content}</p>
         </div>
     `).join('');
+}
+
+document.getElementById('submit-comment-btn')?.addEventListener('click', async () => {
+    const input = document.getElementById('comment-input');
+    const content = input.value.trim();
+    if (!content || !currentCommentChapterId) return;
+
+    const { error } = await supabase.from('chapter_comments').insert({
+        chapter_id: currentCommentChapterId,
+        user_id: currentUser.id,
+        content: content
+    });
+
+    if (!error) {
+        input.value = '';
+        window.addXP(10);
+        loadChapterComments(currentCommentChapterId);
+        loadChapters(); // Update count in list
+    }
+});
+
+// Friends Logic (All Readers)
+async function loadFriends() {
+    const container = document.getElementById('readers-list');
+    container.innerHTML = '<div class="text-center p-10 opacity-30 animate-pulse font-impact tracking-widest">SUMMONING DWELLERS...</div>';
+    
+    // Get all profiles from Supabase
+    const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('xp', { ascending: false });
+    
+    if (error || !data) {
+        container.innerHTML = '<div class="text-center p-10 opacity-30">The void is empty.</div>';
+        return;
+    }
+
+    container.innerHTML = data.map(r => {
+        const isSelf = r.id === currentUser.id;
+        const info = getLevelInfo(r.xp);
+        return `
+        <div class="glass-panel p-5 rounded-[2rem] flex items-center justify-between border border-white/5">
+            <div class="flex items-center gap-4">
+                <div class="relative">
+                    <img src="${r.avatar_url}" class="w-12 h-12 rounded-2xl border border-white/10 object-cover">
+                    <div class="absolute -bottom-1 -right-1 aura-bg px-1 rounded text-[6px] font-black">LVL ${r.level}</div>
+                </div>
+                <div>
+                    <h5 class="text-xs font-black text-white uppercase tracking-widest">${r.display_name} ${isSelf ? '<span class="text-[8px] opacity-30 ml-1">(YOU)</span>' : ''}</h5>
+                    <p class="text-[8px] text-slate-500 font-black uppercase tracking-widest">${info.name}</p>
+                </div>
+            </div>
+            ${!isSelf ? `
+                <button onclick="startChat('${r.id}', '${r.display_name}')" class="aura-bg px-5 py-2.5 rounded-full text-[8px] font-black uppercase tracking-widest shadow-lg active:scale-90 transition-transform">Whisper</button>
+            ` : ''}
+        </div>
+    `}).join('');
 }
 
 window.startChat = function(userId, name) {
@@ -203,7 +297,7 @@ async function loadMessages() {
     if (!data) return;
     container.innerHTML = data.map(m => `
         <div class="flex ${m.sender_id === currentUser.id ? 'justify-end' : 'justify-start'}">
-            <div class="max-w-[80%] px-4 py-3 rounded-2xl ${m.sender_id === currentUser.id ? 'aura-bg text-white' : 'bg-white/5 text-slate-300'} text-xs">
+            <div class="max-w-[80%] px-4 py-3 rounded-2xl ${m.sender_id === currentUser.id ? 'aura-bg text-white' : 'bg-white/10 text-slate-200'} text-xs leading-relaxed shadow-lg">
                 ${m.content}
             </div>
         </div>
@@ -228,6 +322,39 @@ window.sendMessage = async function() {
     }
 }
 
+// Profile View Logic
+function fillProfileData() {
+    if (!profileData) return;
+    document.getElementById('profile-full-avatar').src = profileData.avatar_url;
+    document.getElementById('profile-full-name').innerText = profileData.display_name.toUpperCase();
+    document.getElementById('profile-edit-name').value = profileData.display_name;
+    document.getElementById('profile-edit-bio').value = profileData.bio || '';
+    updateXPUI();
+}
+
+window.updateProfile = async function() {
+    const newName = document.getElementById('profile-edit-name').value.trim();
+    const newBio = document.getElementById('profile-edit-bio').value.trim();
+    
+    if (!newName) return alert('Soul designation required.');
+
+    const { error } = await supabase
+        .from('profiles')
+        .update({ display_name: newName, bio: newBio })
+        .eq('id', currentUser.id);
+
+    if (!error) {
+        profileData.display_name = newName;
+        profileData.bio = newBio;
+        updateNavUI();
+        fillProfileData();
+        alert('Scroll Updated Successfully.');
+        window.addXP(5);
+    } else {
+        alert('Interference detected. Try again.');
+    }
+}
+
 // Auth & Setup
 async function checkAuth() {
     if (!supabase) return;
@@ -236,6 +363,7 @@ async function checkAuth() {
     if (user) {
         await fetchProfile();
         window.showView('home-view');
+        renderXPGuide();
     } else {
         window.showView('login-view');
     }
@@ -248,7 +376,7 @@ async function fetchProfile() {
             id: currentUser.id,
             display_name: currentUser.user_metadata.full_name || 'New Reader',
             avatar_url: currentUser.user_metadata.avatar_url || `https://api.dicebear.com/7.x/pixel-art/svg?seed=${currentUser.id}`,
-            xp: 0, level: 1
+            xp: 0, level: 1, bio: ''
         };
         await supabase.from('profiles').insert(newProfile);
         profileData = newProfile;
@@ -267,14 +395,19 @@ function updateNavUI() {
 window.openReader = function(id) {
     window.showView('reader-view');
     const container = document.getElementById('reader-pages');
-    container.innerHTML = '';
-    for (let i = 1; i <= 5; i++) {
-        const img = document.createElement('img');
-        img.src = `https://picsum.photos/seed/h${id}p${i}/800/1200`;
-        img.className = "w-full mb-1";
-        container.appendChild(img);
-    }
-    window.addXP(20);
+    container.innerHTML = '<div class="text-center p-20 opacity-20 animate-pulse font-horror text-2xl">DESCENDING...</div>';
+    
+    setTimeout(() => {
+        container.innerHTML = '';
+        for (let i = 1; i <= 5; i++) {
+            const img = document.createElement('img');
+            img.src = `https://picsum.photos/seed/falsehope_ch${id}_pg${i}/800/1200`;
+            img.className = "w-full mb-1 select-none shadow-2xl";
+            img.loading = "lazy";
+            container.appendChild(img);
+        }
+        window.addXP(20);
+    }, 800);
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -283,3 +416,19 @@ document.addEventListener('DOMContentLoaded', () => {
         supabase.auth.signInWithOAuth({ provider: 'google' });
     });
 });
+
+window.openRecognition = function(name) {
+    const iconBox = document.getElementById('recognition-icon-box');
+    const nameEl = document.getElementById('recognition-name');
+    const textEl = document.getElementById('recognition-text');
+    nameEl.innerText = name;
+    if (name === 'MINASHA') {
+        iconBox.innerHTML = '❤️';
+        textEl.innerText = "The Guardian of the Sanctum. Thank you for your eternal light and support.";
+    } else {
+        iconBox.innerHTML = '🔥';
+        textEl.innerText = "The Flame Bearer. A legendary reader whose passion keeps the void burning bright.";
+    }
+    window.toggleModal('recognition-modal');
+    window.addXP(5);
+}
