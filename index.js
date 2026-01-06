@@ -60,19 +60,6 @@ async function syncProfile() {
     } catch (e) { console.error("Profile sync failed", e); }
 }
 
-function startStatsLoop() {
-    // Only update existing known columns to avoid 400 errors
-    setInterval(async () => {
-        if (currentUser) {
-            try {
-                await supabase.from('profiles').update({ 
-                    last_seen: new Date()
-                }).eq('id', currentUser.id);
-            } catch(e) {}
-        }
-    }, 60000);
-}
-
 window.showView = function(id, push = true) {
     v();
     document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
@@ -153,46 +140,53 @@ window.openRecognition = (key) => {
 window.setChapterSort = (s) => { chapterSort = s; v(); loadChapters(); };
 async function loadChapters() {
     const container = document.getElementById('chapters-list-mobile');
-    container.innerHTML = '<div class="p-10 text-center opacity-20 uppercase text-[9px] tracking-widest">Loading...</div>';
+    container.innerHTML = '<div class="p-10 text-center opacity-20 uppercase text-[9px] tracking-widest">GATHERING SCROLLS...</div>';
     
     let likes = [];
     try { const { data } = await supabase.from('chapter_likes').select('chapter_id'); likes = data || []; } catch(e){}
     
+    let comments = [];
+    try { const { data } = await supabase.from('chapter_comments').select('chapter_id'); comments = data || []; } catch(e){}
+
     let chapters = [];
     for(let i=1; i<=30; i++) {
-        const count = likes.filter(l => l.chapter_id === i).length || 0;
-        chapters.push({ id: i, likes: count });
+        const likeCount = likes.filter(l => l.chapter_id === i).length || 0;
+        const commCount = comments.filter(c => c.chapter_id === i).length || 0;
+        chapters.push({ id: i, likes: likeCount, comments: commCount });
     }
     
     if (chapterSort === 'old') chapters.sort((a,b) => a.id - b.id);
     else chapters.sort((a,b) => b.id - a.id);
     
     container.innerHTML = chapters.map(c => `
-        <div id="chapter-card-${c.id}" class="glass-panel rounded-xl border border-white/10 overflow-hidden mb-4 active:scale-[0.99] transition-all">
-            <div class="p-5 flex justify-between items-center">
-                <div class="flex-1 py-3 cursor-pointer" onclick="openReader(${c.id})">
-                    <p class="text-[12px] font-black text-white uppercase tracking-widest">Chapter ${c.id}</p>
-                    <p class="text-[9px] text-slate-500 font-bold uppercase mt-1">Read Now</p>
+        <div id="chapter-card-${c.id}" class="chapter-tablet rounded-2xl mb-5 shadow-2xl active:scale-[0.98] transition-all">
+            <div class="p-6 flex justify-between items-center">
+                <div class="flex items-center gap-6 flex-1 cursor-pointer" onclick="openReader(${c.id})">
+                    <div class="fantasy-font chapter-num-glow">${c.id}</div>
+                    <div>
+                        <p class="fantasy-font text-[13px] font-bold text-white uppercase tracking-widest">CHAPTER PORTAL</p>
+                        <p class="text-[9px] text-slate-500 font-bold uppercase tracking-tighter">Enter the story</p>
+                    </div>
                 </div>
-                <div class="flex gap-6 items-center">
-                    <button onclick="likeChapterInline(${c.id})" class="flex flex-col items-center p-2 active:scale-125 transition-transform">
-                        <span class="text-2xl text-red-500">♥</span>
-                        <span class="text-[10px] font-black text-white/50">${c.likes}</span>
+                <div class="flex gap-4 items-center">
+                    <button onclick="likeChapterInline(${c.id})" class="action-orb active:scale-125">
+                        <span class="text-xl text-red-500">♥</span>
+                        <span class="text-[10px] font-black text-white/60">${c.likes}</span>
                     </button>
-                    <button onclick="toggleChapterInlineComments(${c.id})" class="flex flex-col items-center p-2 active:scale-125 transition-transform">
-                        <span class="text-2xl text-slate-400">💬</span>
-                        <span class="text-[10px] font-black text-white/50">Open</span>
+                    <button onclick="toggleChapterInlineComments(${c.id})" class="action-orb active:scale-125">
+                        <span class="text-xl text-slate-300">💬</span>
+                        <span class="text-[10px] font-black text-white/60">${c.comments}</span>
                     </button>
                 </div>
             </div>
-            <div id="chapter-comments-inline-${c.id}" class="expandable-content border-t border-white/5 bg-black/40">
-                <div class="p-4 space-y-4">
-                    <div id="chapter-comments-list-${c.id}" class="max-h-[300px] overflow-y-auto space-y-3 scroll-container">
-                        <p class="text-[8px] opacity-20 text-center uppercase tracking-widest py-4">Loading Comments...</p>
+            <div id="chapter-comments-inline-${c.id}" class="expandable-content border-t border-white/5 bg-black/60">
+                <div class="p-5 space-y-4">
+                    <div id="chapter-comments-list-${c.id}" class="max-h-[350px] overflow-y-auto space-y-3 scroll-container pr-2">
+                        <p class="text-[8px] opacity-20 text-center uppercase tracking-widest py-4">Reading Scrolls...</p>
                     </div>
-                    <div class="flex gap-2 pt-3 border-t border-white/5">
-                        <input id="chapter-comment-input-${c.id}" type="text" placeholder="Add a comment..." class="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-[10px] text-white outline-none">
-                        <button onclick="submitChapterCommentInline(${c.id})" class="bg-purple-600 px-4 py-2 rounded-lg text-[9px] font-black uppercase">Post</button>
+                    <div class="flex gap-2 pt-4 border-t border-white/5">
+                        <input id="chapter-comment-input-${c.id}" type="text" placeholder="Add to the story..." class="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-[11px] text-white outline-none">
+                        <button onclick="submitChapterCommentInline(${c.id})" class="bg-purple-600 px-5 rounded-xl text-[10px] font-black uppercase shadow-lg shadow-purple-900/40">POST</button>
                     </div>
                 </div>
             </div>
@@ -200,12 +194,12 @@ async function loadChapters() {
 }
 
 window.likeChapterInline = async (id) => {
-    v(30);
+    v(40);
     try { await supabase.from('chapter_likes').insert({ chapter_id: id, user_id: currentUser.id }); loadChapters(); } catch(e){}
 };
 
 window.toggleChapterInlineComments = async (id) => {
-    v();
+    v(10);
     const card = document.getElementById(`chapter-card-${id}`);
     const isExpanded = card.classList.contains('expanded');
     document.querySelectorAll('[id^="chapter-card-"]').forEach(c => c.classList.remove('expanded'));
@@ -215,20 +209,20 @@ window.toggleChapterInlineComments = async (id) => {
 async function loadChapterCommentsInline(id) {
     const list = document.getElementById(`chapter-comments-list-${id}`);
     try {
-        const { data } = await supabase.from('chapter_comments').select('*, profiles(display_name, avatar_url, email)').eq('chapter_id', id).order('created_at', { ascending: false });
+        const { data } = await supabase.from('chapter_comments').select('*, profiles:user_id(display_name, avatar_url, email)').eq('chapter_id', id).order('created_at', { ascending: false });
         if (!data) return;
         list.innerHTML = data.map(c => `
-            <div class="flex gap-3 items-start p-2 bg-white/5 rounded-lg">
-                <img src="${c.profiles.avatar_url}" class="w-6 h-6 rounded-full object-cover ${c.profiles.email === AUTHOR_EMAIL ? 'creator-glow' : ''}">
+            <div class="flex gap-3 items-start p-3 bg-white/5 rounded-2xl border border-white/5">
+                <img src="${c.profiles.avatar_url}" class="w-8 h-8 rounded-full object-cover ${c.profiles.email === AUTHOR_EMAIL ? 'creator-glow' : ''}">
                 <div class="flex-1">
                     <div class="flex justify-between items-center mb-0.5">
-                        <p class="text-[8px] font-black text-purple-400 uppercase">${c.profiles.display_name}</p>
-                        <p class="text-[7px] text-slate-600">${new Date(c.created_at).toLocaleDateString()}</p>
+                        <p class="text-[9px] font-black text-purple-400 uppercase tracking-tight">${c.profiles.display_name}</p>
+                        <p class="text-[7px] text-slate-600 uppercase font-bold">${new Date(c.created_at).toLocaleDateString()}</p>
                     </div>
-                    <p class="text-[10px] text-slate-200 leading-tight">${c.content}</p>
+                    <p class="text-[11px] text-slate-200 leading-normal">${c.content}</p>
                 </div>
-            </div>`).join('') || '<p class="text-[8px] opacity-20 text-center uppercase tracking-widest py-4">No comments found.</p>';
-    } catch(e){}
+            </div>`).join('') || '<p class="text-[9px] opacity-20 text-center uppercase tracking-widest py-6">No comments recorded.</p>';
+    } catch(e){ console.error(e); }
 }
 
 window.submitChapterCommentInline = async (id) => {
@@ -243,7 +237,7 @@ window.submitChapterCommentInline = async (id) => {
 
 window.openReader = async (id) => {
     currentChapterId = id;
-    v(15);
+    v(30);
     window.showView('reader-view');
     const container = document.getElementById('reader-pages');
     container.innerHTML = '<div class="p-20 text-center opacity-10 text-[9px] uppercase tracking-[1em]">Summoning Pages...</div>';
@@ -283,7 +277,7 @@ window.openReader = async (id) => {
 window.openChapterComments = async () => {
     if(!currentChapterId) return;
     try {
-        const { data } = await supabase.from('chapter_comments').select('*, profiles(display_name, avatar_url, email)').eq('chapter_id', currentChapterId).order('created_at', { ascending: false });
+        const { data } = await supabase.from('chapter_comments').select('*, profiles:user_id(display_name, avatar_url, email)').eq('chapter_id', currentChapterId).order('created_at', { ascending: false });
         const list = document.getElementById('chapter-comments-list');
         list.innerHTML = (data || []).map(c => `
             <div class="flex gap-3 p-3 bg-white/5 rounded-xl border border-white/5">

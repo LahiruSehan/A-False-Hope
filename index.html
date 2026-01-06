@@ -10,17 +10,49 @@
     
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,700;0,900;1,900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Inter:ital,wght@0,400;0,700;0,900;1,900&display=swap" rel="stylesheet">
     <style>
-        :root { --aura-color: #a855f7; --void-black: #020617; }
+        :root { --aura-color: #a855f7; --void-black: #020617; --gold: #fbbf24; }
         body { font-family: 'Inter', sans-serif; background: var(--void-black); color: #f8fafc; -webkit-tap-highlight-color: transparent; }
         #particle-canvas { position: fixed; inset: 0; z-index: -1; pointer-events: none; transition: opacity 0.5s; }
         
+        .fantasy-font { font-family: 'Cinzel', serif; }
         .view { height: 100vh; width: 100vw; position: fixed; inset: 0; z-index: 10; overflow-y: auto; -webkit-overflow-scrolling: touch; }
         .hidden { display: none !important; }
         
         .glass-panel { background: rgba(10, 15, 30, 0.85); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255,255,255,0.05); }
         .bold-italic { font-weight: 900; font-style: italic; letter-spacing: -0.04em; }
+        
+        /* Mystic Tablet Styling */
+        .chapter-tablet {
+            position: relative;
+            background: linear-gradient(135deg, #0f172a 0%, #020617 100%);
+            border: 1px solid rgba(168, 85, 247, 0.2);
+            box-shadow: inset 0 0 20px rgba(168, 85, 247, 0.1);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            overflow: hidden;
+        }
+        .chapter-tablet::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(251, 191, 36, 0.4), transparent);
+        }
+        .chapter-tablet:active { transform: scale(0.97); border-color: var(--gold); }
+        
+        .chapter-num-glow {
+            font-size: 2.5rem; font-weight: 900; line-height: 1;
+            background: linear-gradient(to bottom, #fff 0%, var(--gold) 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 0 8px rgba(251, 191, 36, 0.3));
+        }
+
+        .action-orb {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 50%; width: 52px; height: 52px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            transition: all 0.3s ease;
+        }
+        .action-orb:active { background: rgba(168, 85, 247, 0.2); border-color: var(--aura-color); }
         
         .animated-title {
             background: linear-gradient(to right, #a855f7, #ec4899, #3b82f6, #a855f7);
@@ -41,7 +73,6 @@
         .scroll-container::-webkit-scrollbar { width: 4px; }
         .scroll-container::-webkit-scrollbar-thumb { background: rgba(168, 85, 247, 0.3); border-radius: 10px; }
         
-        /* Creator Aura */
         .creator-glow { 
             box-shadow: 0 0 20px rgba(168, 85, 247, 0.6); 
             border: 2px solid #a855f7 !important;
@@ -126,7 +157,7 @@
                 </button>
                 <button id="reader-like-btn" onclick="likeChapterAction()" class="p-3 text-red-500 hidden scale-125 transition-transform active:scale-100">♥</button>
                 <button id="reader-comment-btn" onclick="openChapterComments()" class="p-3 text-slate-200 hidden transition-transform active:scale-95">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
                 </button>
                 <button onclick="toggleModal('app-settings-modal')" class="p-2 text-slate-400 rotating-gear">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
