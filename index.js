@@ -9,20 +9,21 @@ const AUTHOR_EMAIL = 'lamusicstudio831@gmail.com';
 const REDIRECT_URL = 'https://lahirusehan.github.io/A-False-Hope/';
 
 let currentUser = null, profileData = null, navHistory = ['home-view'], currentRating = 0;
-let chapterSort = 'new', homeTab = 'leaderboard', isMusicPlaying = false;
+let chapterSort = 'new', homeTab = 'leaderboard';
 let currentChapterId = null;
 let activeChatId = null;
 let messageSubscription = null;
+let currentFanArtId = null;
 
 function v(ms = 10) { if (window.hapticEnabled !== false && navigator.vibrate) navigator.vibrate(ms); }
 
 function initParticles() {
     const canvas = document.getElementById('particle-canvas'), ctx = canvas.getContext('2d');
     let particles = [];
-    const resize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
+    const resize = () => { if(!canvas) return; canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
     class P { constructor() { this.r(); } r() { this.x = Math.random()*canvas.width; this.y = Math.random()*canvas.height; this.s = Math.random()*1.5; this.vx = (Math.random()-0.5)*0.2; this.vy = (Math.random()-0.5)*0.2; this.o = Math.random()*0.3; } u() { this.x+=this.vx; this.y+=this.vy; if(this.x<0||this.x>canvas.width||this.y<0||this.y>canvas.height) this.r(); } d() { ctx.fillStyle=`rgba(168,85,247,${this.o})`; ctx.beginPath(); ctx.arc(this.x,this.y,this.s,0,Math.PI*2); ctx.fill(); } }
     for(let i=0;i<40;i++) particles.push(new P());
-    const anim = () => { ctx.clearRect(0,0,canvas.width,canvas.height); particles.forEach(p=>{p.u();p.d();}); requestAnimationFrame(anim); };
+    const anim = () => { if(!ctx) return; ctx.clearRect(0,0,canvas.width,canvas.height); particles.forEach(p=>{p.u();p.d();}); requestAnimationFrame(anim); };
     window.addEventListener('resize', resize); resize(); anim();
 }
 
@@ -54,9 +55,24 @@ function setupRealtime() {
 
 async function syncProfile() {
     try {
-        const { data } = await supabase.from('profiles').select('*').eq('id', currentUser.id).single();
-        profileData = data;
-        updateUI();
+        const { data, error } = await supabase.from('profiles').select('*').eq('id', currentUser.id).single();
+        if (data) {
+            profileData = data;
+            updateUI();
+        } else if (error && error.code === 'PGRST116') {
+            // No profile yet, create it
+            const newProfile = {
+                id: currentUser.id,
+                display_name: currentUser.user_metadata.full_name || 'Guest Reader',
+                avatar_url: currentUser.user_metadata.avatar_url || 'https://i.ibb.co/vzG7P6z/default.png',
+                email: currentUser.email,
+                bio: 'Surviving the hope.',
+                rating: 0
+            };
+            await supabase.from('profiles').insert(newProfile);
+            profileData = newProfile;
+            updateUI();
+        }
     } catch (e) { console.error("Profile sync failed", e); }
 }
 
@@ -84,7 +100,16 @@ window.showView = function(id, push = true) {
 };
 
 window.goBack = () => { if(navHistory.length > 1) { navHistory.pop(); window.showView(navHistory[navHistory.length-1], false); } };
-window.toggleModal = (id) => { v(); const m = document.getElementById(id); m.classList.toggle('hidden'); };
+window.toggleModal = (id) => { 
+    v(); 
+    const m = document.getElementById(id); 
+    if(!m) return;
+    m.classList.toggle('hidden'); 
+    if (id === 'settings-modal' && !m.classList.contains('hidden')) {
+        document.getElementById('profile-edit-name').value = profileData.display_name;
+        document.getElementById('profile-edit-bio').value = profileData.bio || '';
+    }
+};
 
 window.setHomeTab = (tab) => { homeTab = tab; loadHomeContent(); };
 
@@ -97,32 +122,95 @@ async function loadHomeContent() {
     c.innerHTML = '<div class="opacity-10 py-10 uppercase text-[8px] tracking-widest text-center">Loading...</div>';
     
     if (homeTab === 'leaderboard') {
-        const { data } = await supabase.from('profiles').select('*').limit(10);
-        c.innerHTML = (data || []).map((u, i) => `
+        const { data } = await supabase.from('profiles').select('*').order('last_seen', { ascending: false }).limit(20);
+        c.innerHTML = (data || []).map((u, i) => {
+            const isAuth = u.email === AUTHOR_EMAIL;
+            const name = isAuth ? 'LAHIRU SEHAN' : u.display_name;
+            const role = isAuth ? '<span class="author-tag">AUTHOR</span>' : 'READER';
+            const r = u.rating ? `<span class="user-rating-pill">${u.rating} ★</span>` : '';
+            return `
             <div class="flex items-center gap-3 p-3 bg-white/5 rounded-xl mb-2 cursor-pointer active:scale-95 transition-transform" onclick="showUserProfile('${u.id}')">
                 <span class="text-[10px] font-black opacity-20 w-4">${i+1}</span>
-                <img src="${u.avatar_url}" class="w-8 h-8 rounded-full object-cover border border-white/5 ${u.email === AUTHOR_EMAIL ? 'creator-glow' : ''}">
+                <img src="${u.avatar_url}" class="w-8 h-8 rounded-full object-cover border border-white/5 ${isAuth ? 'creator-glow' : ''}">
                 <div class="flex-1">
-                    <p class="text-[10px] font-black text-white">${u.display_name.toUpperCase()}</p>
-                    <p class="text-[7px] text-purple-400 font-bold">${u.email === AUTHOR_EMAIL ? 'CREATOR & AUTHOR' : 'READER'}</p>
+                    <div class="flex items-center gap-1">
+                        <p class="text-[10px] font-black text-white">${name.toUpperCase()}</p>
+                        ${r}
+                    </div>
+                    <p class="text-[7px] text-purple-400 font-bold">${role}</p>
                 </div>
-            </div>`).join('');
+            </div>`;
+        }).join('');
     } else if (homeTab === 'gallery') {
         const items = [
-            'https://picsum.photos/seed/fh1/300/300', 'https://picsum.photos/seed/fh2/300/300',
-            'https://picsum.photos/seed/fh3/300/300', 'https://picsum.photos/seed/fh4/300/300'
+            {id: 'fa1', src: 'https://picsum.photos/seed/fh1/600/600'},
+            {id: 'fa2', src: 'https://picsum.photos/seed/fh2/600/600'},
+            {id: 'fa3', src: 'https://picsum.photos/seed/fh3/600/600'},
+            {id: 'fa4', src: 'https://picsum.photos/seed/fh4/600/600'}
         ];
         c.innerHTML = `
             <button onclick="alert('Submission system coming soon!')" class="w-full py-4 mb-4 bg-purple-600/10 border border-purple-500/20 rounded-xl text-[10px] font-black uppercase tracking-widest text-purple-400 active:scale-95 transition-transform">Submit Your Fan Art</button>
-            <div class="grid grid-cols-2 gap-3">${items.map(img => `<img src="${img}" class="w-full aspect-square object-cover rounded-xl border border-white/5 cursor-pointer active:scale-95 transition-transform" onclick="openLightbox('${img}')">`).join('')}</div>
+            <div class="grid grid-cols-2 gap-3">${items.map(img => `<img src="${img.src}" class="w-full aspect-square object-cover rounded-xl border border-white/5 cursor-pointer active:scale-95 transition-transform" onclick="openLightbox('${img.src}', '${img.id}')">`).join('')}</div>
         `;
     }
 }
 
-window.openLightbox = (src) => {
+window.openLightbox = (src, id) => {
     const lb = document.getElementById('gallery-lightbox');
     const img = document.getElementById('lightbox-img');
-    img.src = src; lb.classList.remove('hidden');
+    img.src = src; 
+    currentFanArtId = id;
+    lb.classList.remove('hidden');
+    loadFanArtInteractions(id);
+};
+
+async function loadFanArtInteractions(id) {
+    const container = document.getElementById('fanart-interactions');
+    container.innerHTML = '<div class="opacity-20 py-4 text-center text-[9px] uppercase tracking-widest">Loading Thoughts...</div>';
+    
+    try {
+        const { data: likes } = await supabase.from('fanart_likes').select('id').eq('fanart_id', id);
+        const { data: comms } = await supabase.from('fanart_comments').select('*, profiles(display_name, avatar_url, email)').eq('fanart_id', id).order('created_at', { ascending: false });
+        
+        container.innerHTML = `
+            <div class="flex items-center justify-between border-b border-white/5 pb-3">
+                <button onclick="likeFanArt('${id}')" class="flex items-center gap-2 bg-red-500/10 px-4 py-2 rounded-lg text-red-500 text-[10px] font-black uppercase">
+                    ♥ ${likes?.length || 0} Likes
+                </button>
+                <div class="text-[9px] font-bold text-slate-500 uppercase">${comms?.length || 0} Comments</div>
+            </div>
+            <div class="space-y-3 pt-2">
+                ${(comms || []).map(c => `
+                    <div class="flex gap-2 items-start bg-white/5 p-2 rounded-xl">
+                        <img src="${c.profiles.avatar_url}" class="w-6 h-6 rounded-full object-cover border border-white/10 ${c.profiles.email === AUTHOR_EMAIL ? 'creator-glow' : ''}">
+                        <div>
+                            <p class="text-[8px] font-black text-purple-400 uppercase">${c.profiles.display_name}</p>
+                            <p class="text-[10px] text-slate-200 leading-tight">${c.content}</p>
+                        </div>
+                    </div>
+                `).join('') || '<p class="text-[8px] opacity-10 text-center py-2 uppercase">No scrolls here yet.</p>'}
+            </div>
+            <div class="flex gap-2 pt-2">
+                <input id="fa-comment-input" type="text" placeholder="Your thought..." class="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-[10px] text-white outline-none">
+                <button onclick="submitFanArtComment('${id}')" class="bg-purple-600 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase">Post</button>
+            </div>
+        `;
+    } catch(e){}
+}
+
+window.likeFanArt = async (id) => {
+    v(40);
+    try { await supabase.from('fanart_likes').insert({ fanart_id: id, user_id: currentUser.id }); loadFanArtInteractions(id); } catch(e){}
+};
+
+window.submitFanArtComment = async (id) => {
+    const input = document.getElementById('fa-comment-input');
+    const content = input.value.trim();
+    if(!content) return;
+    try {
+        await supabase.from('fanart_comments').insert({ fanart_id: id, user_id: currentUser.id, content });
+        input.value = ''; loadFanArtInteractions(id);
+    } catch(e){}
 };
 
 const recognitionData = {
@@ -144,7 +232,6 @@ async function loadChapters() {
     
     let likes = [];
     try { const { data } = await supabase.from('chapter_likes').select('chapter_id'); likes = data || []; } catch(e){}
-    
     let comments = [];
     try { const { data } = await supabase.from('chapter_comments').select('chapter_id'); comments = data || []; } catch(e){}
 
@@ -209,46 +296,31 @@ window.toggleChapterInlineComments = async (id) => {
 async function loadChapterCommentsInline(id) {
     const list = document.getElementById(`chapter-comments-list-${id}`);
     try {
-        // Standard join syntax. If profiles!user_id fails, try this simpler one.
-        const { data, error } = await supabase
-            .from('chapter_comments')
-            .select('*, profiles(display_name, avatar_url, email)')
-            .eq('chapter_id', id)
-            .order('created_at', { ascending: false });
-
-        if (error) {
-            // Fallback for cases where join causes 400
-            console.warn("Join failed, trying fallback...", error);
-            const { data: fallbackData } = await supabase.from('chapter_comments').select('*').eq('chapter_id', id).order('created_at', { ascending: false });
-            if (fallbackData) {
-                list.innerHTML = fallbackData.map(c => `<div class="p-3 bg-white/5 rounded-2xl mb-2 text-[11px] text-slate-200">${c.content}</div>`).join('');
-                return;
-            }
-        }
-
-        if (!data || data.length === 0) {
-            list.innerHTML = '<p class="text-[9px] opacity-20 text-center uppercase tracking-widest py-6">No comments recorded.</p>';
-            return;
-        }
+        const { data } = await supabase.from('chapter_comments').select('*, profiles(display_name, avatar_url, email, rating)').eq('chapter_id', id).order('created_at', { ascending: false });
+        if (!data || data.length === 0) { list.innerHTML = '<p class="text-[9px] opacity-20 text-center uppercase tracking-widest py-6">No comments recorded.</p>'; return; }
 
         list.innerHTML = data.map(c => {
-            const profile = c.profiles || { display_name: 'Unknown Traveler', avatar_url: '', email: '' };
+            const profile = c.profiles || { display_name: 'Unknown', avatar_url: '', email: '', rating: 0 };
+            const isAuth = profile.email === AUTHOR_EMAIL;
+            const name = isAuth ? 'LAHIRU SEHAN' : profile.display_name;
+            const r = profile.rating ? `<span class="user-rating-pill ml-1">${profile.rating} ★</span>` : '';
             return `
             <div class="flex gap-3 items-start p-3 bg-white/5 rounded-2xl border border-white/5">
-                <img src="${profile.avatar_url}" class="w-8 h-8 rounded-full object-cover ${profile.email === AUTHOR_EMAIL ? 'creator-glow' : ''}">
+                <img src="${profile.avatar_url}" class="w-8 h-8 rounded-full object-cover ${isAuth ? 'creator-glow' : ''}">
                 <div class="flex-1">
                     <div class="flex justify-between items-center mb-0.5">
-                        <p class="text-[9px] font-black text-purple-400 uppercase tracking-tight">${profile.display_name}</p>
+                        <div class="flex items-center gap-1">
+                            <p class="text-[9px] font-black text-purple-400 uppercase tracking-tight">${name}</p>
+                            ${isAuth ? '<span class="author-tag">AUTHOR</span>' : ''}
+                            ${r}
+                        </div>
                         <p class="text-[7px] text-slate-600 uppercase font-bold">${new Date(c.created_at).toLocaleDateString()}</p>
                     </div>
                     <p class="text-[11px] text-slate-200 leading-normal">${c.content}</p>
                 </div>
             </div>`;
         }).join('');
-    } catch(e){ 
-        console.error("Comments error:", e);
-        list.innerHTML = '<p class="text-[8px] text-red-500/50 text-center py-4">Failed to load scrolls.</p>';
-    }
+    } catch(e){ console.error(e); }
 }
 
 window.submitChapterCommentInline = async (id) => {
@@ -256,8 +328,8 @@ window.submitChapterCommentInline = async (id) => {
     const content = input.value.trim();
     if(!content) return;
     try {
-        const { error } = await supabase.from('chapter_comments').insert({ chapter_id: id, user_id: currentUser.id, content });
-        if(!error) { input.value = ''; loadChapterCommentsInline(id); loadChapters(); }
+        await supabase.from('chapter_comments').insert({ chapter_id: id, user_id: currentUser.id, content });
+        input.value = ''; loadChapterCommentsInline(id); loadChapters();
     } catch(e){}
 };
 
@@ -273,12 +345,11 @@ window.openReader = async (id) => {
         const { data: prog } = await supabase.from('reading_progress').select('*').eq('user_id', currentUser.id).eq('chapter_id', id).single();
         setTimeout(() => {
             container.innerHTML = '';
-            const res = window.highRes ? '1600/2400' : '800/1200';
             for(let i=1;i<=5;i++){
                 const wrapper = document.createElement('div');
                 wrapper.className = "zoom-container mb-0.5 shadow-2xl";
                 const img = document.createElement('img');
-                img.src = `https://picsum.photos/seed/fh${id}_${i}/${res}`;
+                img.src = `https://picsum.photos/seed/fh${id}_${i}/800/1200`;
                 img.className = "manga-page";
                 img.onclick = (e) => { v(5); e.target.classList.toggle('zoomed'); };
                 wrapper.appendChild(img);
@@ -303,19 +374,29 @@ window.openReader = async (id) => {
 window.openChapterComments = async () => {
     if(!currentChapterId) return;
     try {
-        const { data } = await supabase.from('chapter_comments').select('*, profiles(display_name, avatar_url, email)').eq('chapter_id', currentChapterId).order('created_at', { ascending: false });
+        const { data } = await supabase.from('chapter_comments').select('*, profiles(display_name, avatar_url, email, rating)').eq('chapter_id', currentChapterId).order('created_at', { ascending: false });
         const list = document.getElementById('chapter-comments-list');
-        list.innerHTML = (data || []).map(c => `
+        list.innerHTML = (data || []).map(c => {
+            const p = c.profiles || { display_name: 'Unknown', avatar_url: '', email: '', rating: 0 };
+            const isAuth = p.email === AUTHOR_EMAIL;
+            const name = isAuth ? 'LAHIRU SEHAN' : p.display_name;
+            const r = p.rating ? `<span class="user-rating-pill ml-1">${p.rating} ★</span>` : '';
+            return `
             <div class="flex gap-3 p-3 bg-white/5 rounded-xl border border-white/5">
-                <img src="${c.profiles?.avatar_url || ''}" class="w-8 h-8 rounded-full object-cover border border-white/10 ${c.profiles?.email === AUTHOR_EMAIL ? 'creator-glow' : ''}">
+                <img src="${p.avatar_url}" class="w-8 h-8 rounded-full object-cover border border-white/10 ${isAuth ? 'creator-glow' : ''}">
                 <div class="flex-1">
                     <div class="flex justify-between items-center">
-                        <p class="text-[9px] font-black text-purple-400 uppercase">${c.profiles?.display_name || 'Unknown'}</p>
+                        <div class="flex items-center gap-1">
+                            <p class="text-[9px] font-black text-purple-400 uppercase">${name}</p>
+                            ${isAuth ? '<span class="author-tag">AUTHOR</span>' : ''}
+                            ${r}
+                        </div>
                         <p class="text-[7px] text-slate-600">${new Date(c.created_at).toLocaleDateString()}</p>
                     </div>
                     <p class="text-[11px] text-slate-300 mt-1">${c.content}</p>
                 </div>
-            </div>`).join('') || '<p class="text-center opacity-10 py-10">No comments yet.</p>';
+            </div>`;
+        }).join('') || '<p class="text-center opacity-10 py-10">No comments yet.</p>';
         window.toggleModal('chapter-comments-modal');
     } catch(e){}
 };
@@ -325,8 +406,8 @@ window.submitChapterComment = async () => {
     const content = input.value.trim();
     if(!content || !currentChapterId) return;
     try {
-        const { error } = await supabase.from('chapter_comments').insert({ chapter_id: currentChapterId, user_id: currentUser.id, content });
-        if(!error) { input.value = ''; openChapterComments(); loadChapters(); }
+        await supabase.from('chapter_comments').insert({ chapter_id: currentChapterId, user_id: currentUser.id, content });
+        input.value = ''; openChapterComments(); loadChapters();
     } catch(e){}
 };
 
@@ -339,15 +420,20 @@ window.showUserProfile = async (userId) => {
     try {
         const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
         if(!data) return;
-        const isCreator = data.email === AUTHOR_EMAIL;
+        const isAuth = data.email === AUTHOR_EMAIL;
+        const name = isAuth ? 'LAHIRU SEHAN' : data.display_name;
+        const r = data.rating ? `<span class="user-rating-pill text-[10px] py-1 px-3">${data.rating} ★ Rating</span>` : '';
         const content = document.getElementById('user-detail-content');
         content.innerHTML = `
             <div class="relative inline-block">
-                <img src="${data.avatar_url}" class="w-24 h-24 rounded-full mx-auto object-cover shadow-2xl ${isCreator ? 'creator-glow' : 'border-2 border-purple-500/30'}">
+                <img src="${data.avatar_url}" class="w-24 h-24 rounded-full mx-auto object-cover shadow-2xl ${isAuth ? 'creator-glow' : 'border-2 border-purple-500/30'}">
             </div>
             <div class="animate-in fade-in zoom-in duration-500">
-                <h4 class="text-sm font-black text-white uppercase tracking-widest">${data.display_name}</h4>
-                <p class="text-[10px] text-purple-400 font-bold uppercase mt-1">${isCreator ? 'CREATOR & AUTHOR' : 'READER'}</p>
+                <div class="flex flex-col items-center gap-2">
+                    <h4 class="text-sm font-black text-white uppercase tracking-widest">${name}</h4>
+                    ${isAuth ? '<span class="author-tag">AUTHOR & CREATOR</span>' : '<span class="text-[9px] text-purple-400 font-bold uppercase">READER</span>'}
+                    ${r}
+                </div>
             </div>
             <div class="text-[11px] text-slate-400 italic px-4">${data.bio || "Reading the story."}</div>`;
         window.toggleModal('user-detail-modal');
@@ -390,19 +476,25 @@ async function loadReaders() {
     const container = document.getElementById('readers-list');
     container.innerHTML = '<div class="text-center p-10 opacity-20 uppercase text-[9px] tracking-widest">Searching Users...</div>';
     try {
-        const { data } = await supabase.from('profiles').select('*');
+        const { data } = await supabase.from('profiles').select('*').order('last_seen', { ascending: false });
         if (!data) return;
         container.innerHTML = data.map(r => {
             const isSelf = r.id === currentUser.id;
-            const isCreator = r.email === AUTHOR_EMAIL;
+            const isAuth = r.email === AUTHOR_EMAIL;
+            const name = isAuth ? 'LAHIRU SEHAN' : r.display_name;
+            const role = isAuth ? '<span class="author-tag">AUTHOR</span>' : 'READER';
+            const rating = r.rating ? `<span class="user-rating-pill">${r.rating} ★</span>` : '';
             return `
             <div id="user-card-${r.id}" class="glass-panel rounded-xl border border-white/5 overflow-hidden mb-3">
                 <div class="p-4 flex items-center justify-between">
                     <div class="flex items-center gap-3 cursor-pointer" onclick="showUserProfile('${r.id}')">
-                        <img src="${r.avatar_url}" class="w-10 h-10 rounded-full object-cover border border-white/10 ${isCreator ? 'creator-glow' : ''}">
+                        <img src="${r.avatar_url}" class="w-10 h-10 rounded-full object-cover border border-white/10 ${isAuth ? 'creator-glow' : ''}">
                         <div>
-                            <p class="text-[11px] font-black text-white uppercase">${r.display_name}</p>
-                            <p class="text-[8px] text-purple-400 font-bold uppercase">${isCreator ? 'CREATOR & AUTHOR' : 'READER'}</p>
+                            <div class="flex items-center gap-1">
+                                <p class="text-[11px] font-black text-white uppercase">${name}</p>
+                                ${rating}
+                            </div>
+                            <p class="text-[8px] text-purple-400 font-bold uppercase">${role}</p>
                         </div>
                     </div>
                     ${!isSelf ? `<button onclick="toggleExpandChat('${r.id}')" class="bg-purple-600 border border-purple-500/20 px-4 py-2 rounded-lg text-[9px] font-black uppercase text-white shadow-lg active:scale-95">Message</button>` : ''}
@@ -432,30 +524,67 @@ window.setRating = (num) => {
     currentRating = num;
     document.querySelectorAll('.star').forEach((s, i) => { s.style.opacity = i < num ? '1' : '0.3'; s.classList.toggle('text-yellow-500', i < num); });
 };
-window.submitRating = async () => { if(currentRating === 0) return; alert("Thank you for your rating."); window.toggleModal('rating-modal'); };
+window.submitRating = async () => { 
+    if(currentRating === 0) return; 
+    try {
+        await supabase.from('profiles').update({ rating: currentRating }).eq('id', currentUser.id);
+        alert("Thank you for your rating."); 
+        syncProfile();
+        window.toggleModal('rating-modal'); 
+    } catch(e){}
+};
 
 function updateUI() {
     if (!profileData) return;
-    const isCreator = profileData.email === AUTHOR_EMAIL;
-    document.getElementById('nav-user-name').innerText = profileData.display_name.toUpperCase();
-    document.getElementById('nav-user-role').innerText = isCreator ? 'CREATOR & AUTHOR' : 'READER';
+    const isAuth = profileData.email === AUTHOR_EMAIL;
+    const name = isAuth ? 'LAHIRU SEHAN' : profileData.display_name;
+    const role = isAuth ? 'AUTHOR & CREATOR' : 'READER';
+    
+    document.getElementById('nav-user-name').innerText = name.toUpperCase();
+    document.getElementById('nav-user-role').innerText = role;
+    
+    const navPill = document.getElementById('nav-rating-pill');
+    if(profileData.rating) {
+        navPill.innerText = profileData.rating + ' ★';
+        navPill.classList.remove('hidden');
+    } else navPill.classList.add('hidden');
+
     document.querySelectorAll('[id$="-user-avatar"]').forEach(img => {
         img.src = profileData.avatar_url;
-        if(isCreator) img.classList.add('creator-glow');
+        if(isAuth) img.classList.add('creator-glow');
     });
-    document.getElementById('settings-user-name').innerText = profileData.display_name;
-    document.getElementById('settings-role-label').innerText = isCreator ? 'CREATOR & AUTHOR' : 'READER';
-    document.getElementById('profile-avatar-wrapper').className = isCreator ? 'rounded-full p-1 creator-glow' : 'rounded-full p-1';
+    
+    document.getElementById('settings-avatar').src = profileData.avatar_url;
+    document.getElementById('settings-user-name').innerText = name;
+    document.getElementById('settings-role-label').innerText = isAuth ? 'AUTHOR' : 'READER';
+    
+    const setPill = document.getElementById('settings-rating-pill');
+    if(profileData.rating) {
+        setPill.innerText = profileData.rating + ' ★';
+        setPill.classList.remove('hidden');
+    } else setPill.classList.add('hidden');
+    
+    document.getElementById('profile-avatar-wrapper').className = isAuth ? 'rounded-full p-1 creator-glow' : 'rounded-full p-1';
 }
 
 window.updateProfile = async function() {
     const name = document.getElementById('profile-edit-name').value.trim();
     const bio = document.getElementById('profile-edit-bio').value.trim();
     if(!name) return;
+    v(30);
     try {
-        const { error } = await supabase.from('profiles').update({ display_name: name, bio }).eq('id', currentUser.id);
-        if (!error) { syncProfile(); alert('Profile updated.'); }
-    } catch(e){}
+        const { error } = await supabase.from('profiles').update({ display_name: name, bio, last_seen: new Date() }).eq('id', currentUser.id);
+        if (!error) { 
+            await syncProfile(); 
+            alert('Profile updated.'); 
+            window.toggleModal('settings-modal');
+        } else {
+            console.error("Update error:", error);
+            alert("Save failed.");
+        }
+    } catch(e){
+        console.error("Update catch:", e);
+    }
 }; 
 
 window.shareStory = () => {
