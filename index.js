@@ -11,12 +11,12 @@ const REDIRECT_URL = 'https://lahirusehan.github.io/A-False-Hope/';
 let currentUser = null, profileData = null, navHistory = ['home-view'], currentRating = 0;
 let chapterSort = 'new', homeTab = 'leaderboard';
 let currentChapterId = null;
+let activeChatId = null;
 let currentFanArtId = null;
 
 // Helper: Haptic Vibration
 function v(ms = 10) { if (window.hapticEnabled !== false && navigator.vibrate) navigator.vibrate(ms); }
 
-// UI Initialization
 function initParticles() {
     const canvas = document.getElementById('particle-canvas');
     if (!canvas) return;
@@ -34,19 +34,29 @@ function initParticles() {
     window.addEventListener('resize', resize); resize(); anim();
 }
 
-// Authentication
 async function checkAuth() {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
         currentUser = user;
         await syncProfile();
+        setupRealtime();
         window.showView('home-view');
     } else { window.showView('login-view'); }
 }
 
+function setupRealtime() {
+    supabase.channel('public:messages')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
+            const msg = payload.new;
+            if (activeChatId && (msg.sender_id === activeChatId || msg.receiver_id === activeChatId)) {
+                loadMessagesInline(activeChatId);
+            }
+        }).subscribe();
+}
+
 async function syncProfile() {
     try {
-        const { data, error } = await supabase.from('profiles').select('*').eq('id', currentUser.id).single();
+        const { data } = await supabase.from('profiles').select('*').eq('id', currentUser.id).single();
         if (data) {
             profileData = data;
             updateUI();
@@ -67,7 +77,6 @@ async function syncProfile() {
     } catch (e) { console.error("Profile sync error", e); }
 }
 
-// Navigation
 window.showView = function(id, push = true) {
     v();
     const target = document.getElementById(id);
@@ -78,14 +87,12 @@ window.showView = function(id, push = true) {
     
     if (push && navHistory[navHistory.length - 1] !== id) navHistory.push(id);
     
-    // Header Visibility Logic
     const nav = document.getElementById('app-nav');
     if (nav) nav.classList.toggle('hidden', ['loading-view','login-view'].includes(id));
     
     const backBtn = document.getElementById('master-back-btn');
     if (backBtn) backBtn.classList.toggle('hidden', id === 'home-view');
 
-    // Data Loading Logic
     if (id === 'home-view') loadHomeContent();
     if (id === 'chapters-view') loadChapters();
     if (id === 'readers-view') loadReaders();
@@ -100,23 +107,27 @@ window.toggleModal = (id) => {
     if(m) {
         m.classList.toggle('hidden');
         if (id === 'settings-modal' && !m.classList.contains('hidden') && profileData) {
-            document.getElementById('profile-edit-name').value = profileData.display_name;
-            document.getElementById('profile-edit-bio').value = profileData.bio || '';
+            const nameInp = document.getElementById('profile-edit-name');
+            const bioInp = document.getElementById('profile-edit-bio');
+            if(nameInp) nameInp.value = profileData.display_name;
+            if(bioInp) bioInp.value = profileData.bio || '';
         }
     }
 };
 
 window.setHomeTab = (tab) => { homeTab = tab; loadHomeContent(); };
 
-// Data Loaders
 async function loadHomeContent() {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.id === `tab-${homeTab}`));
     const c = document.getElementById('home-tab-content');
     if (!c) return;
     c.innerHTML = '<div class="opacity-10 py-10 text-center uppercase text-[8px] tracking-widest">Gathering Data...</div>';
     
-    if (homeTab === 'leaderboard') {
-        const { data } = await supabase.from('profiles').select('*').order('last_seen', { ascending: false }).limit(20);
+    try {
+        const query = supabase.from('profiles').select('*').limit(20);
+        // Fallback for missing last_seen column
+        const { data } = await query.order('created_at', { ascending: false }).catch(() => query);
+        
         c.innerHTML = (data || []).map((u, i) => {
             const isAuth = u.email === AUTHOR_EMAIL;
             const name = isAuth ? 'LAHIRU SEHAN' : u.display_name;
@@ -134,21 +145,9 @@ async function loadHomeContent() {
                 </div>
             </div>`;
         }).join('');
-    } else if (homeTab === 'gallery') {
-        const items = [
-            {id: 'fa1', src: 'https://picsum.photos/seed/fh1/600/600'},
-            {id: 'fa2', src: 'https://picsum.photos/seed/fh2/600/600'},
-            {id: 'fa3', src: 'https://picsum.photos/seed/fh3/600/600'},
-            {id: 'fa4', src: 'https://picsum.photos/seed/fh4/600/600'}
-        ];
-        c.innerHTML = `
-            <button class="w-full py-4 mb-4 bg-purple-600/10 border border-purple-500/20 rounded-xl text-[10px] font-black uppercase text-purple-400">Submit Your Fan Art</button>
-            <div class="grid grid-cols-2 gap-3">${items.map(img => `<img src="${img.src}" class="w-full aspect-square object-cover rounded-xl border border-white/5 cursor-pointer active:scale-95 transition-transform" onclick="openLightbox('${img.src}', '${img.id}')">`).join('')}</div>
-        `;
-    }
+    } catch(e) { c.innerHTML = '<p class="text-center py-10 opacity-20 text-[8px]">FAILED TO LOAD DATA</p>'; }
 }
 
-// Fan Art Logic
 window.openLightbox = (src, id) => {
     const lb = document.getElementById('gallery-lightbox');
     const img = document.getElementById('lightbox-img');
@@ -206,7 +205,7 @@ window.likeFanArt = async (id) => {
 
 window.submitFanArtComment = async (id) => {
     const input = document.getElementById('fa-comment-input');
-    const content = input.value?.trim();
+    const content = input?.value?.trim();
     if(!content) return;
     try {
         await supabase.from('fanart_comments').insert({ fanart_id: id, user_id: currentUser.id, content });
@@ -214,7 +213,6 @@ window.submitFanArtComment = async (id) => {
     } catch(e){}
 };
 
-// Chapters Loader
 async function loadChapters() {
     const container = document.getElementById('chapters-list-mobile');
     if (!container) return;
@@ -231,7 +229,6 @@ async function loadChapters() {
             });
         }
         if (chapterSort === 'new') chapters.sort((a,b) => b.id - a.id);
-        
         container.innerHTML = chapters.map(c => `
             <div id="chapter-card-${c.id}" class="chapter-tablet rounded-2xl p-4 flex justify-between items-center shadow-xl">
                 <div class="flex items-center gap-4 flex-1 cursor-pointer" onclick="openReader(${c.id})">
@@ -243,9 +240,7 @@ async function loadChapters() {
                     <button onclick="toggleChapterInlineComments(${c.id})" class="action-orb"><span class="text-slate-300">💬</span><span class="text-[9px]">${c.comments}</span></button>
                 </div>
             </div>
-            <div id="chapter-comments-inline-${c.id}" class="expandable-content border-t border-white/5 bg-black/40">
-                <div id="list-${c.id}" class="p-4 space-y-2"></div>
-            </div>`).join('');
+            <div id="chapter-comments-inline-${c.id}" class="expandable-content border-t border-white/5 bg-black/40"><div id="list-${c.id}" class="p-4 space-y-2"></div></div>`).join('');
     } catch(e){}
 }
 
@@ -253,7 +248,6 @@ window.toggleChapterInlineComments = async (id) => {
     const card = document.getElementById(`chapter-card-${id}`);
     const list = document.getElementById(`list-${id}`);
     if(!card || !list) return;
-
     card.classList.toggle('expanded');
     if(card.classList.contains('expanded')) {
         list.innerHTML = '<div class="text-center py-2 opacity-10 text-[8px] uppercase">Summoning...</div>';
@@ -262,20 +256,15 @@ window.toggleChapterInlineComments = async (id) => {
             list.innerHTML = (data || []).map(c => {
                 const p = c.profiles || {};
                 const isAuth = p.email === AUTHOR_EMAIL;
-                const name = isAuth ? 'LAHIRU SEHAN' : p.display_name;
                 const r = p.rating ? `<span class="user-rating-pill ml-1">${p.rating} ★</span>` : '';
-                return `
-                <div class="flex gap-2 items-start p-2 bg-white/5 rounded-xl border border-white/5">
+                return `<div class="flex gap-2 items-start p-2 bg-white/5 rounded-xl border border-white/5">
                     <img src="${p.avatar_url}" class="w-7 h-7 rounded-full object-cover ${isAuth ? 'creator-glow' : ''}">
                     <div class="flex-1 min-w-0">
-                        <div class="flex items-center gap-1">
-                            <p class="text-[8px] font-black text-purple-400 uppercase truncate">${name}</p>
-                            ${r}
-                        </div>
+                        <div class="flex items-center gap-1"><p class="text-[8px] font-black text-purple-400 uppercase truncate">${isAuth ? 'LAHIRU SEHAN' : p.display_name}</p>${r}</div>
                         <p class="text-[11px] text-slate-200">${c.content}</p>
                     </div>
                 </div>`;
-            }).join('') || '<div class="text-center py-2 opacity-10 text-[8px] uppercase">No comments recorded.</div>';
+            }).join('') || '<div class="text-center py-2 opacity-10 text-[8px] uppercase">No comments yet.</div>';
         } catch(e){}
     }
 };
@@ -302,7 +291,6 @@ window.openReader = (id) => {
     }, 400);
 };
 
-// Profile UI
 window.showUserProfile = async (userId) => {
     try {
         const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
@@ -327,27 +315,82 @@ window.showUserProfile = async (userId) => {
 async function loadReaders() {
     const c = document.getElementById('readers-list');
     if(!c) return;
-    c.innerHTML = '<div class="text-center p-10 opacity-20 uppercase text-[9px]">Searching...</div>';
+    c.innerHTML = '<div class="text-center p-10 opacity-20 uppercase text-[9px]">Searching Users...</div>';
     try {
-        const { data } = await supabase.from('profiles').select('*').order('last_seen', { ascending: false });
+        const { data } = await supabase.from('profiles').select('*');
         c.innerHTML = (data || []).map(r => {
             const isAuth = r.email === AUTHOR_EMAIL;
             const name = isAuth ? 'LAHIRU SEHAN' : r.display_name;
             const rating = r.rating ? `<span class="user-rating-pill">${r.rating} ★</span>` : '';
-            return `<div class="glass-panel p-4 rounded-xl flex items-center justify-between mb-2">
-                <div class="flex items-center gap-3 cursor-pointer" onclick="showUserProfile('${r.id}')">
-                    <img src="${r.avatar_url}" class="w-10 h-10 rounded-full object-cover border border-white/10 ${isAuth ? 'creator-glow' : ''}">
-                    <div>
-                        <div class="flex items-center gap-1"><p class="text-[11px] font-black text-white uppercase truncate">${name}</p>${rating}</div>
-                        <p class="text-[8px] text-purple-400 font-bold uppercase">${isAuth ? 'AUTHOR' : 'READER'}</p>
+            const isSelf = r.id === currentUser.id;
+            return `
+            <div id="user-card-${r.id}" class="glass-panel p-4 rounded-xl flex flex-col mb-3">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3 cursor-pointer" onclick="showUserProfile('${r.id}')">
+                        <img src="${r.avatar_url}" class="w-10 h-10 rounded-full object-cover border border-white/10 ${isAuth ? 'creator-glow' : ''}">
+                        <div>
+                            <div class="flex items-center gap-1"><p class="text-[11px] font-black text-white uppercase truncate">${name}</p>${rating}</div>
+                            <p class="text-[8px] text-purple-400 font-bold uppercase">${isAuth ? 'AUTHOR' : 'READER'}</p>
+                        </div>
+                    </div>
+                    ${!isSelf ? `<button onclick="toggleChat('${r.id}')" class="bg-blue-600 px-4 py-2 rounded-lg text-[9px] font-black uppercase text-white active:scale-95">Message</button>` : ''}
+                </div>
+                <div id="chat-box-${r.id}" class="expandable-content mt-4 border-t border-white/5 bg-black/40">
+                    <div class="h-[300px] flex flex-col p-4">
+                        <div id="messages-list-${r.id}" class="flex-1 overflow-y-auto space-y-3 mb-3 pr-2 scroll-container"></div>
+                        <div class="flex gap-2">
+                            <input id="chat-input-${r.id}" type="text" placeholder="Type message..." class="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-[10px] text-white outline-none">
+                            <button onclick="sendMessage('${r.id}')" class="bg-blue-600 px-4 rounded-lg text-[9px] font-black uppercase">Send</button>
+                        </div>
                     </div>
                 </div>
             </div>`;
         }).join('');
+    } catch(e){ c.innerHTML = '<p class="text-center py-10 opacity-20 text-[8px]">ERROR FETCHING USERS</p>'; }
+}
+
+window.toggleChat = (userId) => {
+    const box = document.getElementById(`chat-box-${userId}`);
+    const card = document.getElementById(`user-card-${userId}`);
+    if(!box || !card) return;
+    const isOpening = !card.classList.contains('expanded');
+    document.querySelectorAll('.glass-panel').forEach(c => c.classList.remove('expanded'));
+    if(isOpening) {
+        card.classList.add('expanded');
+        activeChatId = userId;
+        loadMessagesInline(userId);
+    } else {
+        activeChatId = null;
+    }
+};
+
+async function loadMessagesInline(userId) {
+    const list = document.getElementById(`messages-list-${userId}`);
+    if(!list) return;
+    try {
+        const { data } = await supabase.from('messages').select('*').or(`and(sender_id.eq.${currentUser.id},receiver_id.eq.${userId}),and(sender_id.eq.${userId},receiver_id.eq.${currentUser.id})`).order('created_at', { ascending: true });
+        list.innerHTML = (data || []).map(m => `
+            <div class="flex ${m.sender_id === currentUser.id ? 'justify-end' : 'justify-start'}">
+                <div class="max-w-[85%] px-3 py-1.5 rounded-xl ${m.sender_id === currentUser.id ? 'bg-blue-600 text-white' : 'bg-white/10 text-slate-200'} text-[10px]">
+                    ${m.content}
+                </div>
+            </div>`).join('');
+        list.scrollTop = list.scrollHeight;
     } catch(e){}
 }
 
-// Global Actions
+window.sendMessage = async (userId) => {
+    const input = document.getElementById(`chat-input-${userId}`);
+    const content = input?.value?.trim();
+    if(!content) return;
+    v(20);
+    try {
+        await supabase.from('messages').insert({ sender_id: currentUser.id, receiver_id: userId, content });
+        input.value = '';
+        loadMessagesInline(userId);
+    } catch(e){}
+};
+
 window.setRating = (num) => {
     currentRating = num;
     document.querySelectorAll('.star').forEach((s, i) => { 
@@ -370,12 +413,11 @@ function updateUI() {
     if (!profileData) return;
     const isAuth = profileData.email === AUTHOR_EMAIL;
     const name = isAuth ? 'LAHIRU SEHAN' : profileData.display_name;
-    const role = isAuth ? 'AUTHOR & CREATOR' : 'READER';
     
     const nameEl = document.getElementById('nav-user-name');
     const roleEl = document.getElementById('nav-user-role');
     if (nameEl) nameEl.innerText = name.toUpperCase();
-    if (roleEl) roleEl.innerText = role;
+    if (roleEl) roleEl.innerText = isAuth ? 'AUTHOR & CREATOR' : 'READER';
     
     const navPill = document.getElementById('nav-rating-pill');
     const setPill = document.getElementById('settings-rating-pill');
@@ -399,24 +441,16 @@ window.updateProfile = async function() {
     const nameInput = document.getElementById('profile-edit-name');
     const bioInput = document.getElementById('profile-edit-bio');
     if(!nameInput) return;
-
     const name = nameInput.value.trim();
-    const bio = bioInput.value.trim();
+    const bio = bioInput ? bioInput.value.trim() : '';
     if(!name) return;
     v(30);
     try {
-        const { error } = await supabase.from('profiles').update({ 
-            display_name: name, 
-            bio, 
-            last_seen: new Date() 
-        }).eq('id', currentUser.id);
-        
-        if(!error) {
-            await syncProfile();
-            alert("Profile Saved.");
-            window.toggleModal('settings-modal');
-        } else alert("Error saving. Please check connection.");
-    } catch(e){ console.error(e); }
+        await supabase.from('profiles').update({ display_name: name, bio, last_seen: new Date() }).eq('id', currentUser.id);
+        await syncProfile();
+        alert("Profile Saved.");
+        window.toggleModal('settings-modal');
+    } catch(e){ alert("Error saving."); }
 };
 
 window.appSettings = {
