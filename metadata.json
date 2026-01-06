@@ -1,8 +1,5 @@
 {
   "name": "A False Hope | Reader",
   "description": "The official mobile manga reader for A False Hope.",
-  "requestFramePermissions": [
-    "camera",
-    "microphone"
-  ]
+  "requestFramePermissions": []
 }

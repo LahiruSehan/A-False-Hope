@@ -1,18 +1,21 @@
-import { APP_CONFIG } from './config.js';
+const INTERNAL_API_KEY = "AIzaSyAOLlW_kN85EAassW-OV4OTuAT0Enl8RVc";
+if (typeof process === 'undefined') window.process = { env: { API_KEY: INTERNAL_API_KEY } };
 
-// Initialize Supabase
 const SUPABASE_URL = 'https://qpagyfoedsrbenhsoemx.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_zaDorGnE20zlG805wQ3SXA_81UbgmLY';
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
 
-let currentUser = null;
-let profileData = null;
-let currentView = 'loading-view';
+const AUTHOR_EMAIL = 'lamusicstudio831@gmail.com';
+const REDIRECT_URL = 'https://lahirusehan.github.io/A-False-Hope/';
+
+let currentUser = null, profileData = null, navHistory = ['home-view'], currentRating = 0;
+let chapterSort = 'new', homeTab = 'leaderboard';
+let currentChapterId = null;
 let activeChatId = null;
-let homeTab = 'leaderboard';
+let currentFanArtId = null;
 
-// UI Utils
-const v = (ms = 10) => navigator.vibrate?.(ms);
+// Helper: Haptic Vibration
+function v(ms = 10) { if (window.hapticEnabled !== false && navigator.vibrate) navigator.vibrate(ms); }
 
 function initParticles() {
     const canvas = document.getElementById('particle-canvas');
@@ -20,314 +23,474 @@ function initParticles() {
     const ctx = canvas.getContext('2d');
     let particles = [];
     const resize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
-    class P {
-        constructor() { this.r(); }
-        r() { 
-            this.x = Math.random() * canvas.width; 
-            this.y = Math.random() * canvas.height; 
-            this.s = Math.random() * 2; 
-            this.v = (Math.random() - 0.5) * 0.1; 
-            this.o = Math.random() * 0.4; 
-        }
-        u() { this.y -= this.v; if (this.y < 0) this.r(); }
-        d() { 
-            ctx.fillStyle = `rgba(59, 130, 246, ${this.o})`; 
-            ctx.beginPath(); ctx.arc(this.x, this.y, this.s, 0, Math.PI * 2); ctx.fill(); 
-        }
+    class P { 
+        constructor() { this.r(); } 
+        r() { this.x = Math.random()*canvas.width; this.y = Math.random()*canvas.height; this.s = Math.random()*1.5; this.vx = (Math.random()-0.5)*0.2; this.vy = (Math.random()-0.5)*0.2; this.o = Math.random()*0.3; } 
+        u() { this.x+=this.vx; this.y+=this.vy; if(this.x<0||this.x>canvas.width||this.y<0||this.y>canvas.height) this.r(); } 
+        d() { ctx.fillStyle=`rgba(168,85,247,${this.o})`; ctx.beginPath(); ctx.arc(this.x,this.y,this.s,0,Math.PI*2); ctx.fill(); } 
     }
-    for (let i = 0; i < 40; i++) particles.push(new P());
-    const anim = () => { ctx.clearRect(0, 0, canvas.width, canvas.height); particles.forEach(p => { p.u(); p.d(); }); requestAnimationFrame(anim); };
+    for(let i=0;i<40;i++) particles.push(new P());
+    const anim = () => { ctx.clearRect(0,0,canvas.width,canvas.height); particles.forEach(p=>{p.u();p.d();}); requestAnimationFrame(anim); };
     window.addEventListener('resize', resize); resize(); anim();
 }
 
-// Navigation Logic
-window.showView = (id) => {
-    v();
-    const target = document.getElementById(id);
-    if (!target) return;
-    
-    document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
-    target.classList.remove('hidden');
-    currentView = id;
-    
-    // UI State Management
-    const nav = document.getElementById('app-nav');
-    const backBtn = document.getElementById('nav-back-btn');
-    
-    nav.classList.toggle('hidden', ['loading-view', 'login-view'].includes(id));
-    backBtn.classList.toggle('hidden', id === 'home-view');
-    backBtn.onclick = () => showView('home-view');
-
-    // Data Loading Triggers
-    if (id === 'home-view') loadHomeData();
-    if (id === 'social-view') loadSocialList();
-    if (id === 'chapters-view') loadChapters();
-};
-
-window.toggleModal = (id) => {
-    v();
-    const m = document.getElementById(id);
-    m.classList.toggle('hidden');
-    if (id === 'profile-modal' && !m.classList.contains('hidden')) {
-        document.getElementById('edit-avatar-preview').src = profileData.avatar_url;
-        document.getElementById('edit-display-name').value = profileData.display_name;
-        document.getElementById('edit-bio').value = profileData.bio || '';
-    }
-};
-
-// Auth & Profiles
 async function checkAuth() {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
         currentUser = user;
         await syncProfile();
         setupRealtime();
-        startHeartbeat();
-        showView('home-view');
-    } else {
-        showView('login-view');
-    }
+        window.showView('home-view');
+    } else { window.showView('login-view'); }
+}
+
+function setupRealtime() {
+    supabase.channel('public:messages')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
+            const msg = payload.new;
+            if (activeChatId && (msg.sender_id === activeChatId || msg.receiver_id === activeChatId)) {
+                loadMessagesInline(activeChatId);
+            }
+        }).subscribe();
 }
 
 async function syncProfile() {
-    const { data } = await supabase.from('profiles').select('*').eq('id', currentUser.id).single();
-    if (data) {
-        profileData = data;
-    } else {
-        const newProfile = {
-            id: currentUser.id,
-            display_name: currentUser.user_metadata.full_name || 'Lost Disciple',
-            avatar_url: currentUser.user_metadata.avatar_url || APP_CONFIG.assets.defaultAvatar,
-            email: currentUser.email,
-            last_seen: new Date()
-        };
-        await supabase.from('profiles').upsert(newProfile);
-        profileData = newProfile;
-    }
-    updateUI();
+    try {
+        const { data } = await supabase.from('profiles').select('*').eq('id', currentUser.id).single();
+        if (data) {
+            profileData = data;
+            updateUI();
+        } else {
+            const newProfile = {
+                id: currentUser.id,
+                display_name: currentUser.user_metadata.full_name || 'Guest Reader',
+                avatar_url: currentUser.user_metadata.avatar_url || 'https://i.ibb.co/vzG7P6z/default.png',
+                email: currentUser.email,
+                bio: 'Surviving the hope.',
+                rating: 0,
+                last_seen: new Date()
+            };
+            await supabase.from('profiles').upsert(newProfile);
+            profileData = newProfile;
+            updateUI();
+        }
+    } catch (e) { console.error("Profile sync error", e); }
 }
+
+window.showView = function(id, push = true) {
+    v();
+    const target = document.getElementById(id);
+    if (!target) return;
+
+    document.querySelectorAll('.view').forEach(view => view.classList.add('hidden'));
+    target.classList.remove('hidden');
+    
+    if (push && navHistory[navHistory.length - 1] !== id) navHistory.push(id);
+    
+    const nav = document.getElementById('app-nav');
+    if (nav) nav.classList.toggle('hidden', ['loading-view','login-view'].includes(id));
+    
+    const backBtn = document.getElementById('master-back-btn');
+    if (backBtn) backBtn.classList.toggle('hidden', id === 'home-view');
+
+    if (id === 'home-view') loadHomeContent();
+    if (id === 'chapters-view') loadChapters();
+    if (id === 'readers-view') loadReaders();
+    if (id !== 'reader-view') target.scrollTop = 0;
+};
+
+window.goBack = () => { if(navHistory.length > 1) { navHistory.pop(); window.showView(navHistory[navHistory.length-1], false); } };
+
+window.toggleModal = (id) => { 
+    v(); 
+    const m = document.getElementById(id);
+    if(m) {
+        m.classList.toggle('hidden');
+        if (id === 'settings-modal' && !m.classList.contains('hidden') && profileData) {
+            const nameInp = document.getElementById('profile-edit-name');
+            const bioInp = document.getElementById('profile-edit-bio');
+            if(nameInp) nameInp.value = profileData.display_name;
+            if(bioInp) bioInp.value = profileData.bio || '';
+        }
+    }
+};
+
+window.setHomeTab = (tab) => { homeTab = tab; loadHomeContent(); };
+
+async function loadHomeContent() {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.id === `tab-${homeTab}`));
+    const c = document.getElementById('home-tab-content');
+    if (!c) return;
+    c.innerHTML = '<div class="opacity-10 py-10 text-center uppercase text-[8px] tracking-widest">Gathering Data...</div>';
+    
+    try {
+        const query = supabase.from('profiles').select('*').limit(20);
+        // Fallback for missing last_seen column
+        const { data } = await query.order('created_at', { ascending: false }).catch(() => query);
+        
+        c.innerHTML = (data || []).map((u, i) => {
+            const isAuth = u.email === AUTHOR_EMAIL;
+            const name = isAuth ? 'LAHIRU SEHAN' : u.display_name;
+            const r = u.rating ? `<span class="user-rating-pill">${u.rating} ★</span>` : '';
+            return `
+            <div class="flex items-center gap-3 p-3 bg-white/5 rounded-xl mb-2 cursor-pointer" onclick="showUserProfile('${u.id}')">
+                <span class="text-[10px] font-black opacity-20 w-4">${i+1}</span>
+                <img src="${u.avatar_url}" class="w-8 h-8 rounded-full object-cover border border-white/5 ${isAuth ? 'creator-glow' : ''}">
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-1">
+                        <p class="text-[10px] font-black text-white truncate">${name.toUpperCase()}</p>
+                        ${r}
+                    </div>
+                    <p class="text-[7px] text-purple-400 font-bold uppercase">${isAuth ? '<span class="author-tag">AUTHOR</span>' : 'READER'}</p>
+                </div>
+            </div>`;
+        }).join('');
+    } catch(e) { c.innerHTML = '<p class="text-center py-10 opacity-20 text-[8px]">FAILED TO LOAD DATA</p>'; }
+}
+
+window.openLightbox = (src, id) => {
+    const lb = document.getElementById('gallery-lightbox');
+    const img = document.getElementById('lightbox-img');
+    if (lb && img) {
+        img.src = src; 
+        currentFanArtId = id;
+        lb.classList.remove('hidden');
+        loadFanArtInteractions(id);
+    }
+};
+
+async function loadFanArtInteractions(id) {
+    const container = document.getElementById('fanart-interactions');
+    if (!container) return;
+    container.innerHTML = '<div class="opacity-20 py-4 text-center text-[9px] uppercase tracking-widest">Gathering Scrolls...</div>';
+    try {
+        const { data: likes } = await supabase.from('fanart_likes').select('id').eq('fanart_id', id);
+        const { data: comms } = await supabase.from('fanart_comments').select('*, profiles(display_name, avatar_url, email, rating)').eq('fanart_id', id).order('created_at', { ascending: false });
+        
+        container.innerHTML = `
+            <div class="flex items-center justify-between border-b border-white/5 pb-3">
+                <button onclick="likeFanArt('${id}')" class="flex items-center gap-2 bg-red-500/10 px-4 py-2 rounded-lg text-red-500 text-[10px] font-black uppercase">♥ ${likes?.length || 0}</button>
+                <div class="text-[9px] font-bold text-slate-500 uppercase">${comms?.length || 0} Comments</div>
+            </div>
+            <div class="space-y-3 pt-2">
+                ${(comms || []).map(c => {
+                    const p = c.profiles || {};
+                    const isAuth = p.email === AUTHOR_EMAIL;
+                    const name = isAuth ? 'LAHIRU SEHAN' : p.display_name;
+                    const r = p.rating ? `<span class="user-rating-pill ml-1">${p.rating} ★</span>` : '';
+                    return `
+                    <div class="flex gap-2 items-start bg-white/5 p-2 rounded-xl">
+                        <img src="${p.avatar_url}" class="w-7 h-7 rounded-full object-cover border border-white/10 ${isAuth ? 'creator-glow' : ''}">
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-1">
+                                <p class="text-[9px] font-black text-purple-400 uppercase truncate">${name}</p>
+                                ${r}
+                            </div>
+                            <p class="text-[11px] text-slate-200 leading-tight break-words">${c.content}</p>
+                        </div>
+                    </div>`;
+                }).join('') || '<p class="text-[8px] opacity-10 text-center py-2 uppercase">No scrolls here yet.</p>'}
+            </div>
+            <div class="flex gap-2 pt-2">
+                <input id="fa-comment-input" type="text" placeholder="Share a thought..." class="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-[10px] text-white outline-none">
+                <button onclick="submitFanArtComment('${id}')" class="bg-purple-600 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase">Post</button>
+            </div>`;
+    } catch(e){ console.error(e); }
+}
+
+window.likeFanArt = async (id) => {
+    v(40);
+    try { await supabase.from('fanart_likes').insert({ fanart_id: id, user_id: currentUser.id }); loadFanArtInteractions(id); } catch(e){}
+};
+
+window.submitFanArtComment = async (id) => {
+    const input = document.getElementById('fa-comment-input');
+    const content = input?.value?.trim();
+    if(!content) return;
+    try {
+        await supabase.from('fanart_comments').insert({ fanart_id: id, user_id: currentUser.id, content });
+        input.value = ''; loadFanArtInteractions(id);
+    } catch(e){}
+};
+
+async function loadChapters() {
+    const container = document.getElementById('chapters-list-mobile');
+    if (!container) return;
+    container.innerHTML = '<div class="p-10 text-center opacity-20 uppercase text-[9px] tracking-widest">Summoning Scrolls...</div>';
+    try {
+        const { data: likes } = await supabase.from('chapter_likes').select('chapter_id');
+        const { data: comms } = await supabase.from('chapter_comments').select('chapter_id');
+        let chapters = [];
+        for(let i=1; i<=30; i++) {
+            chapters.push({ 
+                id: i, 
+                likes: likes?.filter(l => l.chapter_id === i).length || 0, 
+                comments: comms?.filter(c => c.chapter_id === i).length || 0 
+            });
+        }
+        if (chapterSort === 'new') chapters.sort((a,b) => b.id - a.id);
+        container.innerHTML = chapters.map(c => `
+            <div id="chapter-card-${c.id}" class="chapter-tablet rounded-2xl p-4 flex justify-between items-center shadow-xl">
+                <div class="flex items-center gap-4 flex-1 cursor-pointer" onclick="openReader(${c.id})">
+                    <div class="fantasy-font chapter-num-glow">${c.id}</div>
+                    <p class="fantasy-font text-[11px] font-bold text-white uppercase tracking-widest">CHAPTER PORTAL</p>
+                </div>
+                <div class="flex gap-3">
+                    <button onclick="likeChapterInline(${c.id})" class="action-orb"><span class="text-red-500">♥</span><span class="text-[9px]">${c.likes}</span></button>
+                    <button onclick="toggleChapterInlineComments(${c.id})" class="action-orb"><span class="text-slate-300">💬</span><span class="text-[9px]">${c.comments}</span></button>
+                </div>
+            </div>
+            <div id="chapter-comments-inline-${c.id}" class="expandable-content border-t border-white/5 bg-black/40"><div id="list-${c.id}" class="p-4 space-y-2"></div></div>`).join('');
+    } catch(e){}
+}
+
+window.toggleChapterInlineComments = async (id) => {
+    const card = document.getElementById(`chapter-card-${id}`);
+    const list = document.getElementById(`list-${id}`);
+    if(!card || !list) return;
+    card.classList.toggle('expanded');
+    if(card.classList.contains('expanded')) {
+        list.innerHTML = '<div class="text-center py-2 opacity-10 text-[8px] uppercase">Summoning...</div>';
+        try {
+            const { data } = await supabase.from('chapter_comments').select('*, profiles(display_name, avatar_url, email, rating)').eq('chapter_id', id).order('created_at', { ascending: false });
+            list.innerHTML = (data || []).map(c => {
+                const p = c.profiles || {};
+                const isAuth = p.email === AUTHOR_EMAIL;
+                const r = p.rating ? `<span class="user-rating-pill ml-1">${p.rating} ★</span>` : '';
+                return `<div class="flex gap-2 items-start p-2 bg-white/5 rounded-xl border border-white/5">
+                    <img src="${p.avatar_url}" class="w-7 h-7 rounded-full object-cover ${isAuth ? 'creator-glow' : ''}">
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-1"><p class="text-[8px] font-black text-purple-400 uppercase truncate">${isAuth ? 'LAHIRU SEHAN' : p.display_name}</p>${r}</div>
+                        <p class="text-[11px] text-slate-200">${c.content}</p>
+                    </div>
+                </div>`;
+            }).join('') || '<div class="text-center py-2 opacity-10 text-[8px] uppercase">No comments yet.</div>';
+        } catch(e){}
+    }
+};
+
+window.likeChapterInline = async (id) => {
+    v(40);
+    try { await supabase.from('chapter_likes').insert({ chapter_id: id, user_id: currentUser.id }); loadChapters(); } catch(e){}
+};
+
+window.openReader = (id) => {
+    currentChapterId = id;
+    window.showView('reader-view');
+    const container = document.getElementById('reader-pages');
+    if(!container) return;
+    container.innerHTML = '<div class="p-20 text-center opacity-10 text-[9px] uppercase tracking-[1em]">Summoning...</div>';
+    setTimeout(() => {
+        container.innerHTML = '';
+        for(let i=1; i<=10; i++) {
+            const img = document.createElement('img');
+            img.src = `https://picsum.photos/seed/fh${id}_${i}/800/1200`;
+            img.className = "manga-page mb-1 w-full shadow-2xl bg-slate-900";
+            container.appendChild(img);
+        }
+    }, 400);
+};
+
+window.showUserProfile = async (userId) => {
+    try {
+        const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
+        if(!data) return;
+        const isAuth = data.email === AUTHOR_EMAIL;
+        const name = isAuth ? 'LAHIRU SEHAN' : data.display_name;
+        const r = data.rating ? `<span class="user-rating-pill py-1 px-3 mt-2 inline-block">${data.rating} ★ Rated</span>` : '';
+        const content = document.getElementById('user-detail-content');
+        if(!content) return;
+        content.innerHTML = `
+            <div class="relative inline-block"><img src="${data.avatar_url}" class="w-24 h-24 rounded-full mx-auto object-cover ${isAuth ? 'creator-glow' : 'border border-purple-500/30'}"></div>
+            <div class="flex flex-col items-center gap-1">
+                <h4 class="text-sm font-black text-white uppercase tracking-widest">${name}</h4>
+                ${isAuth ? '<span class="author-tag">AUTHOR & CREATOR</span>' : '<span class="text-[8px] text-purple-400 font-bold uppercase">READER</span>'}
+                ${r}
+            </div>
+            <p class="text-[11px] text-slate-400 italic px-4 mt-2">${data.bio || "Searching for hope..."}</p>`;
+        window.toggleModal('user-detail-modal');
+    } catch(e){}
+};
+
+async function loadReaders() {
+    const c = document.getElementById('readers-list');
+    if(!c) return;
+    c.innerHTML = '<div class="text-center p-10 opacity-20 uppercase text-[9px]">Searching Users...</div>';
+    try {
+        const { data } = await supabase.from('profiles').select('*');
+        c.innerHTML = (data || []).map(r => {
+            const isAuth = r.email === AUTHOR_EMAIL;
+            const name = isAuth ? 'LAHIRU SEHAN' : r.display_name;
+            const rating = r.rating ? `<span class="user-rating-pill">${r.rating} ★</span>` : '';
+            const isSelf = r.id === currentUser.id;
+            return `
+            <div id="user-card-${r.id}" class="glass-panel p-4 rounded-xl flex flex-col mb-3">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3 cursor-pointer" onclick="showUserProfile('${r.id}')">
+                        <img src="${r.avatar_url}" class="w-10 h-10 rounded-full object-cover border border-white/10 ${isAuth ? 'creator-glow' : ''}">
+                        <div>
+                            <div class="flex items-center gap-1"><p class="text-[11px] font-black text-white uppercase truncate">${name}</p>${rating}</div>
+                            <p class="text-[8px] text-purple-400 font-bold uppercase">${isAuth ? 'AUTHOR' : 'READER'}</p>
+                        </div>
+                    </div>
+                    ${!isSelf ? `<button onclick="toggleChat('${r.id}')" class="bg-blue-600 px-4 py-2 rounded-lg text-[9px] font-black uppercase text-white active:scale-95">Message</button>` : ''}
+                </div>
+                <div id="chat-box-${r.id}" class="expandable-content mt-4 border-t border-white/5 bg-black/40">
+                    <div class="h-[300px] flex flex-col p-4">
+                        <div id="messages-list-${r.id}" class="flex-1 overflow-y-auto space-y-3 mb-3 pr-2 scroll-container"></div>
+                        <div class="flex gap-2">
+                            <input id="chat-input-${r.id}" type="text" placeholder="Type message..." class="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-[10px] text-white outline-none">
+                            <button onclick="sendMessage('${r.id}')" class="bg-blue-600 px-4 rounded-lg text-[9px] font-black uppercase">Send</button>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+    } catch(e){ c.innerHTML = '<p class="text-center py-10 opacity-20 text-[8px]">ERROR FETCHING USERS</p>'; }
+}
+
+window.toggleChat = (userId) => {
+    const box = document.getElementById(`chat-box-${userId}`);
+    const card = document.getElementById(`user-card-${userId}`);
+    if(!box || !card) return;
+    const isOpening = !card.classList.contains('expanded');
+    document.querySelectorAll('.glass-panel').forEach(c => c.classList.remove('expanded'));
+    if(isOpening) {
+        card.classList.add('expanded');
+        activeChatId = userId;
+        loadMessagesInline(userId);
+    } else {
+        activeChatId = null;
+    }
+};
+
+async function loadMessagesInline(userId) {
+    const list = document.getElementById(`messages-list-${userId}`);
+    if(!list) return;
+    try {
+        const { data } = await supabase.from('messages').select('*').or(`and(sender_id.eq.${currentUser.id},receiver_id.eq.${userId}),and(sender_id.eq.${userId},receiver_id.eq.${currentUser.id})`).order('created_at', { ascending: true });
+        list.innerHTML = (data || []).map(m => `
+            <div class="flex ${m.sender_id === currentUser.id ? 'justify-end' : 'justify-start'}">
+                <div class="max-w-[85%] px-3 py-1.5 rounded-xl ${m.sender_id === currentUser.id ? 'bg-blue-600 text-white' : 'bg-white/10 text-slate-200'} text-[10px]">
+                    ${m.content}
+                </div>
+            </div>`).join('');
+        list.scrollTop = list.scrollHeight;
+    } catch(e){}
+}
+
+window.sendMessage = async (userId) => {
+    const input = document.getElementById(`chat-input-${userId}`);
+    const content = input?.value?.trim();
+    if(!content) return;
+    v(20);
+    try {
+        await supabase.from('messages').insert({ sender_id: currentUser.id, receiver_id: userId, content });
+        input.value = '';
+        loadMessagesInline(userId);
+    } catch(e){}
+};
+
+window.setRating = (num) => {
+    currentRating = num;
+    document.querySelectorAll('.star').forEach((s, i) => { 
+        s.style.opacity = i < num ? '1' : '0.3'; 
+        s.classList.toggle('text-yellow-500', i < num);
+    });
+};
+
+window.submitRating = async () => {
+    if(!currentRating) return;
+    try {
+        await supabase.from('profiles').update({ rating: currentRating }).eq('id', currentUser.id);
+        alert("Thank you for your rating!");
+        await syncProfile();
+        window.toggleModal('rating-modal');
+    } catch(e){}
+};
 
 function updateUI() {
     if (!profileData) return;
-    document.getElementById('nav-avatar').src = profileData.avatar_url;
-    document.getElementById('nav-username').innerText = profileData.display_name.toUpperCase();
-    const isAuthor = profileData.email === APP_CONFIG.authorEmail;
-    document.getElementById('nav-status').innerText = isAuthor ? 'AUTHOR' : 'DISCIPLE';
-    if (isAuthor) document.getElementById('nav-avatar').classList.add('shadow-[0_0_15px_#ef4444]');
-}
+    const isAuth = profileData.email === AUTHOR_EMAIL;
+    const name = isAuth ? 'LAHIRU SEHAN' : profileData.display_name;
+    
+    const nameEl = document.getElementById('nav-user-name');
+    const roleEl = document.getElementById('nav-user-role');
+    if (nameEl) nameEl.innerText = name.toUpperCase();
+    if (roleEl) roleEl.innerText = isAuth ? 'AUTHOR & CREATOR' : 'READER';
+    
+    const navPill = document.getElementById('nav-rating-pill');
+    const setPill = document.getElementById('settings-rating-pill');
+    if(profileData.rating) {
+        if(navPill) { navPill.innerText = profileData.rating + ' ★'; navPill.classList.remove('hidden'); }
+        if(setPill) { setPill.innerText = profileData.rating + ' ★'; setPill.classList.remove('hidden'); }
+    }
 
-function startHeartbeat() {
-    // Update last_seen every 30 seconds to show user as "Live"
-    setInterval(async () => {
-        if (currentUser) {
-            await supabase.from('profiles').update({ last_seen: new Date() }).eq('id', currentUser.id);
-        }
-    }, 30000);
-}
-
-// Data Handling
-window.setHomeTab = (tab) => {
-    homeTab = tab;
-    document.querySelectorAll('[id^="tab-"]').forEach(btn => {
-        const active = btn.id === `tab-${tab}`;
-        btn.classList.toggle('text-white', active);
-        btn.classList.toggle('border-blue-500', active);
-        btn.classList.toggle('text-slate-500', !active);
+    document.querySelectorAll('#nav-user-avatar, #settings-avatar').forEach(img => {
+        img.src = profileData.avatar_url;
+        if(isAuth) img.classList.add('creator-glow');
     });
-    loadHomeData();
-};
-
-async function loadHomeData() {
-    document.getElementById('hero-img').src = APP_CONFIG.assets.cover;
-    const container = document.getElementById('home-content');
-    container.innerHTML = `<div class="py-20 text-center opacity-30 text-[10px] uppercase tracking-[0.4em]">Summoning Data...</div>`;
-
-    if (homeTab === 'leaderboard') {
-        const { data } = await supabase.from('profiles').select('*').order('rating', { ascending: false }).limit(20);
-        container.innerHTML = (data || []).map((u, i) => `
-            <div class="glass p-5 rounded-3xl flex items-center gap-5 group hover:bg-white/10 transition-all">
-                <span class="text-xs font-black opacity-10 w-6">${i+1}</span>
-                <img src="${u.avatar_url}" class="w-12 h-12 rounded-full object-cover">
-                <div class="flex-1">
-                    <p class="text-[11px] font-black uppercase text-white tracking-widest">${u.display_name}</p>
-                    <p class="text-[8px] text-blue-400 font-bold uppercase">${u.rating || 0} Void Points</p>
-                </div>
-            </div>`).join('');
-    } else {
-        container.innerHTML = `<div class="p-10 glass rounded-3xl text-center"><p class="text-[10px] uppercase font-black opacity-20 tracking-widest">No News from the Abyss</p></div>`;
-    }
+    
+    const setUname = document.getElementById('settings-user-name');
+    const setRole = document.getElementById('settings-role-label');
+    if(setUname) setUname.innerText = name;
+    if(setRole) setRole.innerText = isAuth ? 'AUTHOR' : 'READER';
 }
 
-async function loadSocialList() {
-    const list = document.getElementById('social-list');
-    list.innerHTML = `<div class="p-20 text-center opacity-20 text-[10px] uppercase tracking-widest">Gazing into the void...</div>`;
-    
-    const { data } = await supabase.from('profiles').select('*').order('last_seen', { ascending: false });
-    
-    list.innerHTML = (data || []).map(u => {
-        const isSelf = u.id === currentUser.id;
-        const isOnline = (new Date() - new Date(u.last_seen)) < 120000; // 2 minutes window
-        return `
-            <div class="glass p-5 rounded-3xl flex items-center justify-between group">
-                <div class="flex items-center gap-4">
-                    <div class="${isOnline ? 'online-ring' : ''}">
-                        <img src="${u.avatar_url}" class="w-14 h-14 rounded-full object-cover grayscale-[0.5] group-hover:grayscale-0 transition-all">
-                    </div>
-                    <div>
-                        <p class="text-xs font-black text-white uppercase tracking-wider">${u.display_name}</p>
-                        <p class="text-[9px] text-slate-500 line-clamp-1 italic">${u.bio || 'Silence is their answer...'}</p>
-                    </div>
-                </div>
-                ${!isSelf ? `<button onclick="startChat('${u.id}', '${u.display_name}', '${u.avatar_url}')" class="bg-white/5 hover:bg-blue-600 px-5 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all">Message</button>` : '<span class="text-[8px] opacity-20 font-black uppercase">You</span>'}
-            </div>
-        `;
-    }).join('');
-}
-
-async function loadChapters() {
-    const list = document.getElementById('chapters-list');
-    list.innerHTML = '<div class="p-20 text-center opacity-20 text-xs uppercase tracking-widest">Opening Archives...</div>';
-    
-    // Simulating chapters
-    const chapters = Array.from({length: 12}, (_, i) => ({ id: i + 1, title: `Scroll of Hope #${i+1}` }));
-    
-    list.innerHTML = chapters.map(c => `
-        <div class="glass p-6 rounded-[2rem] flex flex-col gap-5 border border-white/5 hover:border-blue-500/30 transition-all">
-            <div onclick="openChapter(${c.id})" class="flex items-center justify-between cursor-pointer group">
-                <div class="flex items-center gap-5">
-                    <span class="fantasy-font text-3xl font-black text-blue-500/40 group-hover:text-blue-500 transition-all">${String(c.id).padStart(2, '0')}</span>
-                    <div class="flex flex-col">
-                        <span class="text-[11px] font-black text-white uppercase tracking-[0.2em]">${c.title}</span>
-                        <span class="text-[8px] text-slate-500 uppercase font-bold">Volume 1: The Descent</span>
-                    </div>
-                </div>
-                <div class="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-blue-600 transition-all">
-                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="3" d="M9 5l7 7-7 7"/></svg>
-                </div>
-            </div>
-            <div class="flex gap-2 border-t border-white/5 pt-4">
-                <button onclick="likeChapter(${c.id})" class="bg-white/5 px-4 py-2 rounded-full text-[8px] font-black uppercase tracking-widest hover:bg-red-500/20 hover:text-red-500 transition-all">Like</button>
-                <button onclick="toggleComments(${c.id})" class="bg-white/5 px-4 py-2 rounded-full text-[8px] font-black uppercase tracking-widest hover:bg-blue-500/20 hover:text-blue-500 transition-all">Discuss</button>
-            </div>
-        </div>`).join('');
-}
-
-window.openChapter = (id) => {
-    showView('reader-view');
-    const container = document.getElementById('reader-pages');
-    const progress = document.getElementById('reader-progress');
-    container.innerHTML = '';
-    
-    // Simulate vertical images
-    for (let i = 1; i <= 8; i++) {
-        const img = document.createElement('img');
-        img.src = `https://picsum.photos/seed/falsehope_${id}_${i}/1200/1800`;
-        img.className = "w-full object-contain";
-        img.loading = "lazy";
-        container.appendChild(img);
-    }
-    
-    document.getElementById('reader-view').onscroll = (e) => {
-        const t = e.target;
-        const p = (t.scrollTop / (t.scrollHeight - t.clientHeight)) * 100;
-        progress.style.width = p + '%';
-    };
-};
-
-// Chat & Social Systems
-window.startChat = (id, name, avatar) => {
-    activeChatId = id;
-    document.getElementById('chat-target-name').innerText = name.toUpperCase();
-    document.getElementById('chat-target-avatar').src = avatar;
-    toggleModal('chat-modal');
-    loadMessages();
-};
-
-async function loadMessages() {
-    if (!activeChatId) return;
-    const { data } = await supabase.from('messages')
-        .select('*')
-        .or(`and(sender_id.eq.${currentUser.id},receiver_id.eq.${activeChatId}),and(sender_id.eq.${activeChatId},receiver_id.eq.${currentUser.id})`)
-        .order('created_at', { ascending: true });
-    
-    const list = document.getElementById('chat-messages');
-    list.innerHTML = (data || []).map(m => {
-        const isMine = m.sender_id === currentUser.id;
-        return `
-            <div class="flex ${isMine ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-1">
-                <div class="max-w-[80%] px-5 py-3 rounded-2xl text-[11px] leading-relaxed ${isMine ? 'bg-blue-600 text-white rounded-br-none shadow-lg' : 'bg-white/5 text-slate-300 rounded-bl-none border border-white/5'}">
-                    ${m.content}
-                </div>
-            </div>
-        `;
-    }).join('');
-    list.scrollTop = list.scrollHeight;
-}
-
-window.sendChatMessage = async () => {
-    const input = document.getElementById('chat-input');
-    const content = input.value.trim();
-    if (!content) return;
-    v(20);
-    const { error } = await supabase.from('messages').insert({
-        sender_id: currentUser.id,
-        receiver_id: activeChatId,
-        content
-    });
-    if (!error) {
-        input.value = '';
-        loadMessages();
-    }
-};
-
-window.setNewAvatar = () => {
-    const url = prompt("Enter Image URL for Avatar:");
-    if (url && url.startsWith('http')) {
-        document.getElementById('edit-avatar-preview').src = url;
-    }
-};
-
-window.saveProfile = async () => {
-    const name = document.getElementById('edit-display-name').value.trim();
-    const bio = document.getElementById('edit-bio').value.trim();
-    const avatar_url = document.getElementById('edit-avatar-preview').src;
-    
-    if (!name) return;
-    v(50);
-    const { error } = await supabase.from('profiles').update({
-        display_name: name,
-        bio,
-        avatar_url,
-        last_seen: new Date()
-    }).eq('id', currentUser.id);
-    
-    if (!error) {
+window.updateProfile = async function() {
+    const nameInput = document.getElementById('profile-edit-name');
+    const bioInput = document.getElementById('profile-edit-bio');
+    if(!nameInput) return;
+    const name = nameInput.value.trim();
+    const bio = bioInput ? bioInput.value.trim() : '';
+    if(!name) return;
+    v(30);
+    try {
+        await supabase.from('profiles').update({ display_name: name, bio, last_seen: new Date() }).eq('id', currentUser.id);
         await syncProfile();
-        toggleModal('profile-modal');
+        alert("Profile Saved.");
+        window.toggleModal('settings-modal');
+    } catch(e){ alert("Error saving."); }
+};
+
+window.appSettings = {
+    toggleParticles: (val) => { 
+        const c = document.getElementById('particle-canvas');
+        if(c) c.style.opacity = val ? '1' : '0'; 
+    },
+    clearCache: () => { localStorage.clear(); location.reload(); }
+};
+
+window.shareStory = () => {
+    const url = window.location.origin + window.location.pathname;
+    if (navigator.share) navigator.share({ title: 'A False Hope', url }).catch(console.error);
+    else { navigator.clipboard.writeText(url); alert("Copied!"); }
+};
+
+const recognitionData = {
+    'MINASHA': { text: "The primary vessel of the story. Carries the weight of the void within her soul.", icon: "❤️" },
+    'AROSHA': { text: "The beacon in the dark. A flame that flickers against destiny.", icon: "🔥" }
+};
+window.openRecognition = (key) => {
+    const d = recognitionData[key];
+    const icon = document.getElementById('recognition-icon-box');
+    const name = document.getElementById('recognition-name');
+    const text = document.getElementById('recognition-text');
+    if(icon && name && text) {
+        icon.innerText = d.icon;
+        name.innerText = key;
+        text.innerText = d.text;
+        window.toggleModal('recognition-modal');
     }
 };
 
-// Real-time Engine
-function setupRealtime() {
-    supabase.channel('global-changes')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => {
-            if (activeChatId) loadMessages();
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
-            if (currentView === 'social-view') loadSocialList();
-            if (currentView === 'home-view' && homeTab === 'leaderboard') loadHomeData();
-        })
-        .subscribe();
-}
-
-// Init
-document.addEventListener('DOMContentLoaded', () => {
-    initParticles();
+document.addEventListener('DOMContentLoaded', () => { 
+    initParticles(); 
     checkAuth();
-    document.getElementById('google-login-btn').addEventListener('click', () => {
-        supabase.auth.signInWithOAuth({ 
-            provider: 'google', 
-            options: { redirectTo: APP_CONFIG.redirectUrl } 
+    const loginBtn = document.getElementById('google-login-btn');
+    if(loginBtn) {
+        loginBtn.addEventListener('click', () => {
+            supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: REDIRECT_URL } });
         });
-    });
+    }
 });
