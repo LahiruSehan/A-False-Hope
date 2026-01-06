@@ -1,14 +1,4 @@
 
-import { GoogleGenAI } from "@google/genai";
-
-// Embedded API Key as requested
-const INTERNAL_API_KEY = "AIzaSyAOLlW_kN85EAassW-OV4OTuAT0Enl8RVc";
-
-// Safety Shim for environment
-if (typeof process === 'undefined') {
-    window.process = { env: { API_KEY: INTERNAL_API_KEY } };
-}
-
 const SUPABASE_URL = 'https://qpagyfoedsrbenhsoemx.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_zaDorGnE20zlG805wQ3SXA_81UbgmLY';
 
@@ -16,62 +6,25 @@ const supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SU
 
 let currentUser = null;
 let profileData = null;
-let currentChapterId = 1;
-let currentXP = parseInt(localStorage.getItem('user-xp') || '0');
-const TOTAL_CHAPTERS = 30;
+let navigationHistory = ['home-view'];
+let activeChatUserId = null;
 
-// Level Config (10 Levels)
+const TOTAL_CHAPTERS = 30;
 const LEVEL_CONFIG = [
-    { level: 1, xp: 0, color: '#a855f7', name: 'Newbie' },
-    { level: 2, xp: 100, color: '#6366f1', name: 'Novice' },
-    { level: 3, xp: 250, color: '#3b82f6', name: 'Reader' },
-    { level: 4, xp: 500, color: '#06b6d4', name: 'Enthusiast' },
-    { level: 5, xp: 800, color: '#10b981', name: 'Bookworm' },
-    { level: 6, xp: 1200, color: '#f59e0b', name: 'Scholar' },
-    { level: 7, xp: 1700, color: '#f97316', name: 'Elite' },
-    { level: 8, xp: 2300, color: '#ec4899', name: 'Master' },
-    { level: 9, xp: 3000, color: '#ef4444', name: 'Legend' },
-    { level: 10, xp: 4000, color: '#ffffff', name: 'GOD' },
+    { level: 1, xp: 0, color: '#a855f7', name: 'Drifter' },
+    { level: 2, xp: 100, color: '#6366f1', name: 'Inmate' },
+    { level: 3, xp: 250, color: '#3b82f6', name: 'Sinner' },
+    { level: 4, xp: 500, color: '#06b6d4', name: 'Follower' },
+    { level: 5, xp: 800, color: '#10b981', name: 'Believer' },
+    { level: 6, xp: 1200, color: '#f59e0b', name: 'Apostle' },
+    { level: 7, xp: 1700, color: '#f97316', name: 'Prophet' },
+    { level: 8, xp: 2300, color: '#ec4899', name: 'Wraith' },
+    { level: 9, xp: 3000, color: '#ef4444', name: 'Arch-Demon' },
+    { level: 10, xp: 4000, color: '#ffffff', name: 'THE VOID' },
 ];
 
-function getCurrentLevelInfo() {
-    let current = LEVEL_CONFIG[0];
-    for (const conf of LEVEL_CONFIG) {
-        if (currentXP >= conf.xp) current = conf;
-        else break;
-    }
-    const next = LEVEL_CONFIG.find(c => c.level === current.level + 1) || current;
-    const progress = current.level === 10 ? 100 : ((currentXP - current.xp) / (next.xp - current.xp)) * 100;
-    return { ...current, progress, nextXp: next.xp };
-}
-
-window.addXP = function(amount) {
-    currentXP += amount;
-    localStorage.setItem('user-xp', currentXP);
-    updateXPUI();
-}
-
-function updateXPUI() {
-    const info = getCurrentLevelInfo();
-    const bars = document.querySelectorAll('.xp-bar-fill');
-    bars.forEach(bar => {
-        bar.style.width = `${info.progress}%`;
-        bar.style.backgroundColor = info.color;
-    });
-    
-    const levelLabels = document.querySelectorAll('.level-label');
-    levelLabels.forEach(el => el.innerText = `LVL ${info.level}`);
-    
-    const rankLabels = document.querySelectorAll('.rank-label');
-    rankLabels.forEach(el => el.innerText = info.name.toUpperCase());
-
-    // Update Theme based on level
-    document.documentElement.style.setProperty('--aura-color', info.color);
-    document.documentElement.style.setProperty('--aura-glow', `${info.color}66`);
-}
-
-// Utility: Show View
-window.showView = function(viewId) {
+// Navigation
+window.showView = function(viewId, pushHistory = true) {
     document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
     const target = document.getElementById(viewId);
     if (target) {
@@ -80,15 +33,34 @@ window.showView = function(viewId) {
     }
 
     const nav = document.getElementById('app-nav');
+    const backBtn = document.getElementById('master-back-btn');
+    
+    if (viewId === 'home-view' || viewId === 'login-view' || viewId === 'loading-view') {
+        backBtn.classList.add('hidden');
+    } else {
+        backBtn.classList.remove('hidden');
+    }
+
     if (viewId !== 'loading-view' && viewId !== 'login-view' && viewId !== 'reader-view') {
         nav.classList.remove('hidden');
     } else {
         nav.classList.add('hidden');
     }
 
+    if (pushHistory && navigationHistory[navigationHistory.length - 1] !== viewId) {
+        navigationHistory.push(viewId);
+    }
+
     if (viewId === 'chapters-view') loadChapters();
-    if (viewId === 'profile-view') fillProfileForm();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (viewId === 'readers-view') loadReaders();
+}
+
+window.goBack = function() {
+    if (navigationHistory.length > 1) {
+        navigationHistory.pop();
+        const prevView = navigationHistory[navigationHistory.length - 1];
+        window.showView(prevView, false);
+    }
 }
 
 window.toggleModal = function(modalId) {
@@ -96,33 +68,177 @@ window.toggleModal = function(modalId) {
     if (modal) modal.classList.toggle('hidden');
 }
 
-// 1. AUTH & PROFILE
+// XP & Leveling
+window.addXP = async function(amount) {
+    if (!profileData) return;
+    const newXP = (profileData.xp || 0) + amount;
+    const info = getLevelInfo(newXP);
+    
+    const { error } = await supabase
+        .from('profiles')
+        .update({ xp: newXP, level: info.level })
+        .eq('id', currentUser.id);
+
+    if (!error) {
+        profileData.xp = newXP;
+        profileData.level = info.level;
+        updateXPUI();
+    }
+}
+
+function getLevelInfo(xp) {
+    let current = LEVEL_CONFIG[0];
+    for (const conf of LEVEL_CONFIG) {
+        if (xp >= conf.xp) current = conf;
+        else break;
+    }
+    const next = LEVEL_CONFIG.find(c => c.level === current.level + 1) || current;
+    const progress = current.level === 10 ? 100 : ((xp - current.xp) / (next.xp - current.xp)) * 100;
+    return { ...current, progress };
+}
+
+function updateXPUI() {
+    const info = getLevelInfo(profileData.xp);
+    document.querySelectorAll('.xp-bar-fill').forEach(bar => {
+        bar.style.width = `${info.progress}%`;
+        bar.style.backgroundColor = info.color;
+    });
+    document.querySelectorAll('.level-label').forEach(el => el.innerText = `LVL ${info.level}`);
+    document.querySelectorAll('.rank-label').forEach(el => el.innerText = info.name.toUpperCase());
+    document.documentElement.style.setProperty('--aura-color', info.color);
+}
+
+// Chapters Engagement
+async function loadChapters() {
+    const container = document.getElementById('chapters-list-mobile');
+    container.innerHTML = '<div class="text-center p-10 opacity-30">Summoning scrolls...</div>';
+    
+    const { data: likes } = await supabase.from('chapter_likes').select('chapter_id');
+    const { data: comments } = await supabase.from('chapter_comments').select('chapter_id');
+
+    let html = '';
+    for (let i = 1; i <= TOTAL_CHAPTERS; i++) {
+        const likeCount = likes?.filter(l => l.chapter_id === i).length || 0;
+        const commCount = comments?.filter(c => c.chapter_id === i).length || 0;
+        const hasLiked = likes?.some(l => l.chapter_id === i && l.user_id === currentUser.id);
+
+        html += `
+            <div class="glass-panel p-6 rounded-[2rem] flex items-center justify-between border border-white/5 group">
+                <div class="flex items-center gap-4 flex-1" onclick="openReader(${i})">
+                    <span class="font-impact text-2xl aura-text opacity-40">${i}</span>
+                    <div class="leading-tight">
+                        <h4 class="font-bold text-sm text-white">CHAPTER ${i}</h4>
+                        <p class="text-[8px] text-slate-500 font-black uppercase">Click to descend</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <button onclick="toggleLike(${i})" class="flex flex-col items-center gap-1 group/btn">
+                        <span class="text-lg ${hasLiked ? 'text-red-500' : 'text-slate-600'}">♥</span>
+                        <span class="text-[7px] font-bold text-slate-500">${likeCount}</span>
+                    </button>
+                    <button onclick="openComments(${i})" class="flex flex-col items-center gap-1">
+                        <span class="text-lg text-slate-600">💬</span>
+                        <span class="text-[7px] font-bold text-slate-500">${commCount}</span>
+                    </button>
+                </div>
+            </div>`;
+    }
+    container.innerHTML = html;
+}
+
+window.toggleLike = async function(id) {
+    const { data } = await supabase.from('chapter_likes').select('*').eq('chapter_id', id).eq('user_id', currentUser.id).single();
+    if (data) {
+        await supabase.from('chapter_likes').delete().eq('chapter_id', id).eq('user_id', currentUser.id);
+    } else {
+        await supabase.from('chapter_likes').insert({ chapter_id: id, user_id: currentUser.id });
+        window.addXP(5);
+    }
+    loadChapters();
+}
+
+// Social & Messaging
+async function loadReaders() {
+    const container = document.getElementById('readers-list');
+    const { data } = await supabase.from('profiles').select('*').neq('id', currentUser.id).order('xp', { ascending: false });
+    
+    if (!data) return;
+    container.innerHTML = data.map(r => `
+        <div class="glass-panel p-4 rounded-2xl flex items-center justify-between border border-white/5">
+            <div class="flex items-center gap-3">
+                <img src="${r.avatar_url}" class="w-10 h-10 rounded-full border border-white/10">
+                <div>
+                    <h5 class="text-xs font-bold text-white uppercase">${r.display_name}</h5>
+                    <p class="text-[8px] text-slate-500 font-black">LVL ${r.level} // ${getLevelInfo(r.xp).name}</p>
+                </div>
+            </div>
+            <button onclick="startChat('${r.id}', '${r.display_name}')" class="px-4 py-2 bg-white/5 rounded-full text-[8px] font-black uppercase">Whisper</button>
+        </div>
+    `).join('');
+}
+
+window.startChat = function(userId, name) {
+    activeChatUserId = userId;
+    document.getElementById('chat-with-name').innerText = name.toUpperCase();
+    window.showView('chat-view');
+    loadMessages();
+    
+    // Subscribe to new messages
+    supabase.channel('public:messages')
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
+        if (payload.new.sender_id === activeChatUserId || payload.new.receiver_id === activeChatUserId) {
+            loadMessages();
+        }
+    }).subscribe();
+}
+
+async function loadMessages() {
+    const container = document.getElementById('chat-bubbles');
+    const { data } = await supabase
+        .from('messages')
+        .select('*')
+        .or(`and(sender_id.eq.${currentUser.id},receiver_id.eq.${activeChatUserId}),and(sender_id.eq.${activeChatUserId},receiver_id.eq.${currentUser.id})`)
+        .order('created_at', { ascending: true });
+
+    if (!data) return;
+    container.innerHTML = data.map(m => `
+        <div class="flex ${m.sender_id === currentUser.id ? 'justify-end' : 'justify-start'}">
+            <div class="max-w-[80%] px-4 py-3 rounded-2xl ${m.sender_id === currentUser.id ? 'aura-bg text-white' : 'bg-white/5 text-slate-300'} text-xs">
+                ${m.content}
+            </div>
+        </div>
+    `).join('');
+    container.scrollTop = container.scrollHeight;
+}
+
+window.sendMessage = async function() {
+    const input = document.getElementById('chat-input');
+    const content = input.value.trim();
+    if (!content) return;
+    
+    const { error } = await supabase.from('messages').insert({
+        sender_id: currentUser.id,
+        receiver_id: activeChatUserId,
+        content: content
+    });
+    
+    if (!error) {
+        input.value = '';
+        window.addXP(2);
+    }
+}
+
+// Auth & Setup
 async function checkAuth() {
     if (!supabase) return;
-    try {
-        const { data: { user } } = await supabase.auth.getUser();
-        currentUser = user;
-        if (user) {
-            await fetchProfile();
-            window.showView('home-view');
-            startReadingTimer();
-        } else {
-            window.showView('login-view');
-        }
-    } catch (e) {
+    const { data: { user } } = await supabase.auth.getUser();
+    currentUser = user;
+    if (user) {
+        await fetchProfile();
+        window.showView('home-view');
+    } else {
         window.showView('login-view');
     }
-
-    supabase.auth.onAuthStateChange(async (event, session) => {
-        if (event === 'SIGNED_IN') {
-            currentUser = session?.user;
-            await fetchProfile();
-            window.showView('home-view');
-        } else if (event === 'SIGNED_OUT') {
-            currentUser = null;
-            window.showView('login-view');
-        }
-    });
 }
 
 async function fetchProfile() {
@@ -131,7 +247,8 @@ async function fetchProfile() {
         const newProfile = {
             id: currentUser.id,
             display_name: currentUser.user_metadata.full_name || 'New Reader',
-            avatar_url: currentUser.user_metadata.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser.id}`
+            avatar_url: currentUser.user_metadata.avatar_url || `https://api.dicebear.com/7.x/pixel-art/svg?seed=${currentUser.id}`,
+            xp: 0, level: 1
         };
         await supabase.from('profiles').insert(newProfile);
         profileData = newProfile;
@@ -143,165 +260,26 @@ async function fetchProfile() {
 }
 
 function updateNavUI() {
-    if (!profileData) return;
     document.getElementById('nav-user-name').innerText = profileData.display_name.toUpperCase();
-    document.getElementById('profile-display-name').innerText = profileData.display_name.toUpperCase();
     document.getElementById('nav-user-avatar').src = profileData.avatar_url;
-    document.getElementById('profile-avatar').src = profileData.avatar_url;
 }
 
-function fillProfileForm() {
-    if (!profileData) return;
-    document.getElementById('edit-name').value = profileData.display_name;
-    document.getElementById('edit-birth').value = profileData.birth_date || '';
-    document.getElementById('edit-bio').value = profileData.bio || '';
-}
-
-// 2. AI GENERATION
-async function generateAIAvatar() {
-    const prompt = document.getElementById('ai-prompt').value.trim();
-    if (!prompt) return alert('Enter a description!');
-
-    const loader = document.getElementById('ai-loading-overlay');
-    const preview = document.getElementById('generated-avatar-preview');
-    const applyBtn = document.getElementById('apply-ai-avatar-btn');
-
-    loader.classList.remove('hidden');
-    try {
-        const aiInstance = new GoogleGenAI({ apiKey: INTERNAL_API_KEY });
-        const response = await aiInstance.models.generateContent({
-            model: 'gemini-2.5-flash-image',
-            contents: { parts: [{ text: `Modern anime style profile picture: ${prompt}. High quality, vibrant.` }] },
-            config: { imageConfig: { aspectRatio: "1:1" } }
-        });
-
-        const base64 = response.candidates[0].content.parts.find(p => p.inlineData)?.inlineData.data;
-        if (base64) {
-            preview.src = `data:image/png;base64,${base64}`;
-            preview.classList.remove('hidden');
-            applyBtn.classList.remove('hidden');
-            document.getElementById('ai-placeholder-text').classList.add('hidden');
-        }
-    } catch (err) {
-        alert('Generation failed. Please check your network.');
-    } finally {
-        loader.classList.add('hidden');
-    }
-}
-
-// 3. READER LOGIC
 window.openReader = function(id) {
-    currentChapterId = id;
     window.showView('reader-view');
     const container = document.getElementById('reader-pages');
-    const title = document.getElementById('reader-title');
-    title.innerText = `CHAPTER ${id}`;
-    
     container.innerHTML = '';
     for (let i = 1; i <= 5; i++) {
         const img = document.createElement('img');
-        img.src = `https://picsum.photos/seed/ch${id}pg${i}/800/1200`;
-        img.className = "w-full h-auto mb-1";
-        img.loading = "lazy";
+        img.src = `https://picsum.photos/seed/h${id}p${i}/800/1200`;
+        img.className = "w-full mb-1";
         container.appendChild(img);
     }
-    window.addXP(20); // XP for opening chapter
+    window.addXP(20);
 }
 
-// 4. SETTINGS
-window.updateAura = function(color) {
-    document.documentElement.style.setProperty('--aura-color', color);
-    localStorage.setItem('aura-color', color);
-}
-
-// 5. READING TIMER
-let readTimeSeconds = parseInt(localStorage.getItem('read-time') || '0');
-function startReadingTimer() {
-    setInterval(() => {
-        readTimeSeconds++;
-        localStorage.setItem('read-time', readTimeSeconds);
-        const mins = Math.floor(readTimeSeconds / 60);
-        document.querySelectorAll('.read-time-label').forEach(el => el.innerText = `${mins}m read`);
-        if (readTimeSeconds % 60 === 0) window.addXP(5); // 5 XP every minute
-    }, 1000);
-}
-
-// 6. BOOTSTRAP
 document.addEventListener('DOMContentLoaded', () => {
     checkAuth();
-
     document.getElementById('google-login-btn')?.addEventListener('click', () => {
         supabase.auth.signInWithOAuth({ provider: 'google' });
     });
-    
-    document.getElementById('generate-ai-btn')?.addEventListener('click', generateAIAvatar);
-    document.getElementById('apply-ai-avatar-btn')?.addEventListener('click', async () => {
-        const url = document.getElementById('generated-avatar-preview').src;
-        await supabase.from('profiles').update({ avatar_url: url }).eq('id', currentUser.id);
-        profileData.avatar_url = url;
-        updateNavUI();
-        toggleModal('gemini-modal');
-        window.addXP(50);
-    });
-
-    document.getElementById('save-profile-btn')?.addEventListener('click', async () => {
-        const updates = {
-            display_name: document.getElementById('edit-name').value,
-            birth_date: document.getElementById('edit-birth').value,
-            bio: document.getElementById('edit-bio').value
-        };
-        await supabase.from('profiles').update(updates).eq('id', currentUser.id);
-        profileData = {...profileData, ...updates};
-        updateNavUI();
-        alert('Profile Updated!');
-        window.addXP(10);
-    });
-
-    window.addEventListener('scroll', () => {
-        const reader = document.getElementById('reader-view');
-        if (!reader.classList.contains('hidden')) {
-            const winScroll = document.body.scrollTop || document.documentElement.scrollTop;
-            const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
-            const scrolled = (winScroll / height) * 100;
-            const bar = document.getElementById('reader-progress-bar');
-            if (bar) bar.style.width = scrolled + "%";
-        }
-    });
 });
-
-function loadChapters() {
-    const container = document.getElementById('chapters-list-mobile');
-    let html = '';
-    for (let i = 1; i <= TOTAL_CHAPTERS; i++) {
-        html += `
-            <div class="glass-panel p-5 rounded-3xl flex items-center justify-between active:scale-95 transition-all border border-white/5" onclick="openReader(${i})">
-                <div class="flex items-center gap-5">
-                    <span class="font-bold text-xl opacity-30">${String(i).padStart(2, '0')}</span>
-                    <div>
-                        <h4 class="font-bold text-sm">Chapter ${i}</h4>
-                        <p class="text-[8px] text-slate-500 uppercase font-black">Ready to read</p>
-                    </div>
-                </div>
-                <div class="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-slate-600">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="3" d="M9 5l7 7-7 7"></path></svg>
-                </div>
-            </div>`;
-    }
-    container.innerHTML = html;
-}
-
-window.openRecognition = function(name) {
-    const iconBox = document.getElementById('recognition-icon-box');
-    const nameEl = document.getElementById('recognition-name');
-    const textEl = document.getElementById('recognition-text');
-    nameEl.innerText = name;
-    if (name === 'MINASHA') {
-        iconBox.innerHTML = '❤️';
-        textEl.innerText = "Thank you for supporting our community!";
-    } else {
-        iconBox.innerHTML = '🔥';
-        textEl.innerText = "A true legend who keeps the flame alive.";
-    }
-    window.toggleModal('recognition-modal');
-    window.addXP(5);
-}

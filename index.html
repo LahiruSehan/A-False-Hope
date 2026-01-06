@@ -4,301 +4,203 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>A FALSE HOPE | Manga Archive</title>
+    <title>A FALSE HOPE | The Sanctum</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Cinzel:wght@900&family=Bebas+Neue&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;900&family=Cinzel:wght@900&family=Bebas+Neue&family=Nosifer&display=swap" rel="stylesheet">
     <style>
-        :root {
-            --aura-color: #a855f7;
-            --aura-glow: rgba(168, 85, 247, 0.4);
-            --void-black: #020617;
-        }
-        body { 
-            font-family: 'Inter', sans-serif; 
-            background-color: var(--void-black);
-            color: #f8fafc;
-            -webkit-tap-highlight-color: transparent;
-            overflow: hidden;
-        }
+        :root { --aura-color: #a855f7; --aura-glow: rgba(168, 85, 247, 0.4); --void-black: #020617; }
+        body { font-family: 'Inter', sans-serif; background: var(--void-black); color: #f8fafc; overflow: hidden; -webkit-tap-highlight-color: transparent; }
         .font-impact { font-family: 'Bebas Neue', cursive; }
+        .font-horror { font-family: 'Nosifer', cursive; }
         .font-title { font-family: 'Cinzel', serif; }
-        
+
         .view { height: 100vh; width: 100vw; overflow: hidden; position: fixed; inset: 0; }
         .hidden { display: none !important; }
 
-        .aura-text { color: var(--aura-color); text-shadow: 0 0 15px var(--aura-glow); transition: all 0.5s; }
-        .aura-bg { background-color: var(--aura-color); box-shadow: 0 0 25px var(--aura-glow); transition: all 0.5s; }
-        
-        .glass-panel { 
-            background: rgba(15, 23, 42, 0.4);
-            backdrop-filter: blur(15px); 
-            border: 1px solid rgba(255,255,255,0.05); 
+        .aura-text { color: var(--aura-color); text-shadow: 0 0 15px var(--aura-glow); transition: 0.5s; }
+        .aura-bg { background: var(--aura-color); box-shadow: 0 0 25px var(--aura-glow); transition: 0.5s; }
+        .glass-panel { background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.05); }
+
+        /* THE TITLE: EPIC FANTASY HORROR */
+        .horror-title {
+            font-size: 5rem; line-height: 0.8; letter-spacing: -4px;
+            background: linear-gradient(to bottom, #f8fafc 30%, var(--aura-color) 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 0 10px rgba(0,0,0,0.8));
+            transform: skewX(-5deg);
         }
 
-        /* ROTATING GEAR */
-        .rotating-gear {
-            animation: rotate-slow 10s linear infinite;
+        /* VOID PORTAL BUTTON */
+        .btn-portal {
+            position: relative; overflow: hidden; border-radius: 2rem;
+            background: #000; border: 1px solid var(--aura-color);
+            transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
-        @keyframes rotate-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .btn-portal:active { transform: scale(0.9) rotate(-1deg); }
+        .btn-portal::before {
+            content: ''; position: absolute; inset: -50%;
+            background: conic-gradient(from 180deg at 50% 50%, transparent, var(--aura-color), transparent);
+            animation: rotate-portal 4s linear infinite; opacity: 0.3;
+        }
+        @keyframes rotate-portal { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
-        /* EXTREME READ NOW BUTTON */
-        .btn-extreme {
-            position: relative;
-            background: linear-gradient(45deg, var(--aura-color), #6366f1, #3b82f6, var(--aura-color));
-            background-size: 300% 300%;
-            animation: gradient-pulse 3s ease infinite, shake 5s infinite;
-            overflow: hidden;
-            border: 2px solid rgba(255,255,255,0.2);
-        }
-        @keyframes gradient-pulse {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
-        }
-        @keyframes shake {
-            0%, 100% { transform: scale(1); }
-            10%, 20% { transform: scale(0.98) rotate(-1deg); }
-            30%, 50%, 70%, 90% { transform: scale(1.02) rotate(1deg); }
-            40%, 60%, 80% { transform: scale(1.02) rotate(-1deg); }
-        }
-        .btn-extreme::after {
-            content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
-            background: linear-gradient(to right, transparent, rgba(255,255,255,0.4), transparent);
-            transform: rotate(45deg);
-            animation: shine 2s infinite;
-        }
-        @keyframes shine { from { left: -150%; } to { left: 150%; } }
-
-        /* XP BAR */
-        .xp-container { height: 4px; background: rgba(255,255,255,0.05); border-radius: 99px; overflow: hidden; }
-        .xp-bar-fill { height: 100%; transition: width 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275), background-color 1s; }
-
-        .fade-bottom {
-            mask-image: linear-gradient(to top, transparent 0%, black 30%);
-            -webkit-mask-image: linear-gradient(to top, transparent 0%, black 30%);
+        /* FLOATING BACK BUTTON */
+        .back-orb {
+            width: 50px; height: 50px; border-radius: 50%; background: var(--void-black);
+            border: 2px solid var(--aura-color); display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 0 20px var(--aura-glow); transition: 0.3s; z-index: 1000;
         }
 
+        .xp-bar-fill { transition: width 0.8s cubic-bezier(0.34, 1.56, 0.64, 1); }
         .safe-bottom { padding-bottom: calc(1rem + env(safe-area-inset-bottom)); }
         .safe-top { padding-top: env(safe-area-inset-top); }
 
-        .small-recog-btn { width: 44px; height: 44px; border-radius: 14px; display: flex; items-center; justify-content: center; font-size: 14px; transition: all 0.3s; }
-        .small-recog-btn:active { transform: scale(0.8); }
-
-        /* VIEW TRANSITIONS */
-        .flex-view-active { display: flex !important; flex-direction: column; animation: fadeIn 0.4s ease; }
-        @keyframes fadeIn { from { opacity: 0; transform: scale(1.05); } to { opacity: 1; transform: scale(1); } }
+        .special-badge {
+            width: 40px; height: 40px; border-radius: 12px; font-size: 16px;
+            display: flex; align-items: center; justify-content: center;
+            background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05);
+            animation: float 3s ease-in-out infinite;
+        }
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
     </style>
-<script type="importmap">
-{
-  "imports": {
-    "@google/genai": "https://esm.sh/@google/genai@^1.34.0"
-  }
-}
-</script>
 </head>
 <body class="bg-black">
 
-    <!-- TOP NAV (THINNER) -->
+    <!-- FLOATING NAV TOOLS -->
+    <button id="master-back-btn" onclick="goBack()" class="fixed bottom-10 left-8 back-orb hidden">
+        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="3" d="M15 19l-7-7 7-7"></path></svg>
+    </button>
+
+    <!-- NAV BAR -->
     <nav id="app-nav" class="fixed top-0 left-0 right-0 z-[80] hidden safe-top">
-        <div class="px-5 py-2 flex items-center justify-between glass-panel border-b border-white/5">
-            <div class="flex items-center gap-3 active:opacity-60" onclick="showView('profile-view')">
-                <div class="relative">
-                    <img id="nav-user-avatar" src="" class="w-8 h-8 rounded-lg border border-white/10 bg-slate-900 object-cover">
-                    <div class="absolute -bottom-1 -right-1 px-1 bg-white text-black text-[6px] font-black rounded-sm level-label">LVL 1</div>
-                </div>
-                <div class="leading-none">
-                    <p id="nav-user-name" class="text-[9px] font-black tracking-widest text-white truncate max-w-[80px]">USER</p>
-                    <div class="xp-container w-16 mt-1"><div class="xp-bar-fill w-0"></div></div>
+        <div class="px-6 py-3 flex items-center justify-between glass-panel border-b border-white/5">
+            <div class="flex items-center gap-3" onclick="showView('profile-view')">
+                <img id="nav-user-avatar" src="" class="w-9 h-9 rounded-full border border-white/10">
+                <div>
+                    <p id="nav-user-name" class="text-[9px] font-black tracking-widest text-white uppercase truncate max-w-[80px]">USER</p>
+                    <div class="h-1 bg-white/5 rounded-full w-16 mt-1 overflow-hidden"><div class="xp-bar-fill h-full w-0"></div></div>
                 </div>
             </div>
-            
             <div class="flex items-center gap-4">
-                <div class="text-[8px] font-bold text-slate-500 read-time-label">0m read</div>
-                <button onclick="toggleModal('settings-modal')" class="text-white hover:text-purple-400 p-1">
-                    <svg class="w-5 h-5 rotating-gear" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path></svg>
-                </button>
+                <button onclick="showView('readers-view')" class="text-[10px] font-black aura-text tracking-widest">DWELLERS</button>
+                <button onclick="toggleModal('settings-modal')" class="p-1">⚙️</button>
             </div>
         </div>
     </nav>
 
     <!-- LOADING -->
-    <section id="loading-view" class="view flex flex-col items-center justify-center bg-black">
-        <div class="w-12 h-12 border-2 border-white/5 border-t-white rounded-full animate-spin"></div>
-        <p class="mt-4 text-[9px] font-black tracking-[0.4em] uppercase text-white/40">Synchronizing</p>
+    <section id="loading-view" class="view flex flex-col items-center justify-center">
+        <div class="horror-title text-2xl opacity-20">SANCTUM</div>
+        <div class="mt-4 w-48 h-0.5 bg-white/5 overflow-hidden"><div class="h-full aura-bg animate-pulse"></div></div>
     </section>
 
     <!-- LOGIN -->
-    <section id="login-view" class="view hidden flex flex-col items-center justify-center p-10">
-        <img src="https://i.ibb.co/0jNjDF8k/Cover2.png" class="absolute inset-0 w-full h-full object-cover opacity-40">
-        <div class="absolute inset-0 bg-gradient-to-t from-black via-black/80 to-transparent"></div>
-        <div class="relative z-10 text-center space-y-12">
-            <h1 class="font-impact text-7xl text-white tracking-tighter leading-none">A FALSE<br><span class="aura-text">HOPE</span></h1>
-            <button id="google-login-btn" class="px-12 py-5 bg-white text-black font-black text-xs rounded-full shadow-2xl active:scale-95 transition-all">SIGN IN WITH GOOGLE</button>
+    <section id="login-view" class="view hidden flex flex-col items-center justify-center bg-black p-10">
+        <img src="https://i.ibb.co/0jNjDF8k/Cover2.png" class="absolute inset-0 w-full h-full object-cover opacity-30">
+        <div class="relative z-10 text-center space-y-16">
+            <div class="horror-title">A FALSE<br>HOPE</div>
+            <button id="google-login-btn" class="px-12 py-5 bg-white text-black font-black text-xs rounded-full">ENTERING THE VOID</button>
         </div>
     </section>
 
-    <!-- HOME (FULL SCREEN FIT) -->
-    <section id="home-view" class="view hidden flex flex-col justify-between">
-        <div class="relative w-full aspect-video overflow-hidden fade-bottom shrink-0">
-            <img src="https://i.ibb.co/0jNjDF8k/Cover2.png" class="w-full h-full object-cover">
-        </div>
+    <!-- HOME (FULL SCREEN COMPOSITION) -->
+    <section id="home-view" class="view hidden flex flex-col">
+        <div class="absolute inset-0"><img src="https://i.ibb.co/0jNjDF8k/Cover2.png" class="w-full h-full object-cover opacity-60"></div>
+        <div class="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent"></div>
         
-        <div class="flex-1 px-8 py-4 flex flex-col justify-between relative z-10">
-            <div class="space-y-1">
+        <div class="relative z-10 flex-1 flex flex-col justify-between px-8 pt-24 pb-12">
+            <div class="space-y-2">
                 <div class="flex items-center gap-3">
-                    <span class="px-2 py-0.5 bg-white/10 rounded text-[7px] font-black text-white">MANGA</span>
-                    <span class="px-2 py-0.5 bg-white/10 rounded text-[7px] font-black text-white">OFFICIAL</span>
-                    <div class="flex items-center gap-2 ml-auto">
-                        <span class="text-[8px] font-black aura-text level-label">LVL 1</span>
-                        <span class="text-[8px] font-bold text-slate-500 read-time-label">0m read</span>
-                    </div>
+                    <span class="text-[8px] font-black border border-white/20 px-2 py-0.5 rounded">ORIGINAL ARCHIVE</span>
+                    <span class="text-[8px] font-black aura-text level-label">LVL 1</span>
                 </div>
-                <h1 class="font-impact text-[7.5rem] leading-[0.75] text-white tracking-tighter -ml-1">HOPE</h1>
-                <p class="text-[10px] text-slate-400 leading-tight line-clamp-2 max-w-[80%]">The official archive for the hit series. Explore the mystery of the void and reclaim the lost light.</p>
+                <div class="horror-title mt-4">A FALSE<br>HOPE</div>
+                <p class="text-[11px] text-slate-400 font-medium leading-relaxed max-w-[280px]">Descend into the official chronicle of the void. Reclaim the light or vanish in the echoes.</p>
             </div>
 
-            <div class="py-6">
-                <button onclick="showView('chapters-view')" class="w-full btn-extreme h-20 rounded-2xl font-impact text-4xl text-white tracking-widest shadow-[0_0_50px_var(--aura-glow)]">
-                    READ NOW
+            <div class="flex flex-col gap-6">
+                <button onclick="showView('chapters-view')" class="btn-portal w-full h-24 flex items-center justify-center font-impact text-5xl text-white tracking-widest italic">
+                    DESCEND NOW
                 </button>
-            </div>
-
-            <div class="flex items-center justify-between safe-bottom">
-                <div class="space-y-1">
-                    <p class="text-[7px] font-black text-slate-600 uppercase tracking-widest">Library Ranking</p>
-                    <p class="text-xs font-black aura-text rank-label">INITIATE</p>
-                </div>
-                <div class="flex gap-2">
-                    <button onclick="openRecognition('MINASHA')" class="small-recog-btn bg-pink-500/20 text-pink-500 border border-pink-500/20">❤️</button>
-                    <button onclick="openRecognition('AROSHA')" class="small-recog-btn bg-orange-500/20 text-orange-500 border border-orange-500/20">🔥</button>
+                
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-[8px] font-black text-slate-500 uppercase tracking-widest">Void Rank</p>
+                        <p class="text-sm font-black aura-text rank-label">DRIFTER</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="openRecognition('MINASHA')" class="special-badge border-pink-500/20 text-pink-500">❤️</button>
+                        <button onclick="openRecognition('AROSHA')" class="special-badge border-orange-500/20 text-orange-500">🔥</button>
+                    </div>
                 </div>
             </div>
         </div>
     </section>
 
     <!-- CHAPTERS -->
-    <section id="chapters-view" class="view hidden bg-black pt-16 flex flex-col">
-        <div class="px-8 py-4 flex items-center justify-between border-b border-white/5">
-            <h2 class="font-impact text-3xl text-white">ARCHIVE</h2>
-            <button onclick="showView('home-view')" class="text-white/40"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"></path></svg></button>
+    <section id="chapters-view" class="view hidden bg-black pt-20 flex flex-col">
+        <div id="chapters-list-mobile" class="flex-1 overflow-y-auto p-8 space-y-4"></div>
+    </section>
+
+    <!-- DWELLERS (READERS LIST) -->
+    <section id="readers-view" class="view hidden bg-black pt-20 flex flex-col">
+        <div class="px-8 mb-6"><h2 class="font-impact text-4xl text-white tracking-widest">DWELLERS</h2></div>
+        <div id="readers-list" class="flex-1 overflow-y-auto px-8 space-y-3 pb-32"></div>
+    </section>
+
+    <!-- CHAT VIEW -->
+    <section id="chat-view" class="view hidden bg-black pt-20 flex flex-col">
+        <div class="px-8 py-4 border-b border-white/5 flex items-center gap-3">
+            <div id="chat-with-name" class="font-impact text-xl text-white">WHISPERING...</div>
         </div>
-        <div id="chapters-list-mobile" class="flex-1 overflow-y-auto p-8 space-y-3"></div>
+        <div id="chat-bubbles" class="flex-1 overflow-y-auto p-8 space-y-4 flex flex-col"></div>
+        <div class="p-6 safe-bottom glass-panel">
+            <div class="flex gap-3">
+                <input id="chat-input" type="text" placeholder="Whisper into the void..." class="flex-1 bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-xs text-white">
+                <button onclick="sendMessage()" class="aura-bg px-6 rounded-xl font-black text-xs text-white">SEND</button>
+            </div>
+        </div>
     </section>
 
     <!-- READER -->
     <section id="reader-view" class="view hidden bg-black flex flex-col overflow-y-auto">
-        <div id="reader-progress-container" class="fixed top-0 left-0 w-full h-1 z-[90] bg-white/5">
-            <div id="reader-progress-bar" class="h-full aura-bg w-0"></div>
-        </div>
+        <div id="reader-progress-bar" class="fixed top-0 left-0 h-1 aura-bg w-0 z-[100]"></div>
         <div id="reader-pages" class="w-full"></div>
-        <div class="p-12 text-center safe-bottom bg-black">
-            <h4 class="font-impact text-2xl aura-text">CHAPTER COMPLETE</h4>
-            <p class="text-[9px] text-slate-500 mt-1 font-bold">+20 XP EARNED</p>
-            <button onclick="showView('chapters-view')" class="mt-8 px-10 py-4 bg-white/5 border border-white/10 rounded-full text-[9px] font-black text-white">BACK TO ARCHIVE</button>
+        <div class="p-20 text-center safe-bottom">
+            <div class="horror-title text-3xl">ASCENDED</div>
+            <button onclick="goBack()" class="mt-10 px-12 py-4 border border-white/10 rounded-full font-black text-[10px] text-white">RE-EMERGE</button>
         </div>
     </section>
 
-    <!-- SETTINGS MODAL (EXPANDED) -->
-    <div id="settings-modal" class="fixed inset-0 z-[100] hidden bg-black/90 backdrop-blur-xl flex items-center justify-center p-6">
-        <div class="w-full max-w-sm glass-panel rounded-[2rem] p-8 space-y-8">
-            <div class="flex items-center justify-between">
-                <h3 class="font-impact text-2xl text-white">SETTINGS</h3>
-                <button onclick="toggleModal('settings-modal')" class="text-white/40 text-2xl">&times;</button>
-            </div>
-            
+    <!-- SETTINGS -->
+    <div id="settings-modal" class="fixed inset-0 z-[100] hidden bg-black/90 backdrop-blur-xl flex items-center justify-center p-8">
+        <div class="w-full max-w-sm glass-panel p-10 rounded-[3rem] space-y-10 relative">
+            <button onclick="toggleModal('settings-modal')" class="absolute top-6 right-8 text-white/30 text-2xl font-black">✕</button>
+            <h3 class="font-impact text-3xl text-white tracking-widest">SANCTUM CONFIG</h3>
             <div class="space-y-6">
-                <div class="space-y-3">
-                    <p class="text-[8px] font-black text-slate-500 uppercase">App Accent</p>
+                <div>
+                    <p class="text-[9px] font-black text-slate-500 uppercase mb-3">Soul Resonance</p>
                     <div class="flex justify-between">
-                        <div onclick="updateAura('#a855f7')" class="w-8 h-8 rounded-full bg-purple-500 border-2 border-white/10"></div>
-                        <div onclick="updateAura('#3b82f6')" class="w-8 h-8 rounded-full bg-blue-500 border-2 border-white/10"></div>
-                        <div onclick="updateAura('#10b981')" class="w-8 h-8 rounded-full bg-emerald-500 border-2 border-white/10"></div>
-                        <div onclick="updateAura('#f59e0b')" class="w-8 h-8 rounded-full bg-amber-500 border-2 border-white/10"></div>
-                        <div onclick="updateAura('#ef4444')" class="w-8 h-8 rounded-full bg-red-500 border-2 border-white/10"></div>
+                        <div onclick="addXP(1)" class="w-8 h-8 rounded-full bg-purple-500 border-2 border-white/10"></div>
+                        <div onclick="addXP(1)" class="w-8 h-8 rounded-full bg-blue-500 border-2 border-white/10"></div>
+                        <div onclick="addXP(1)" class="w-8 h-8 rounded-full bg-red-500 border-2 border-white/10"></div>
+                        <div onclick="addXP(1)" class="w-8 h-8 rounded-full bg-orange-500 border-2 border-white/10"></div>
                     </div>
                 </div>
-
-                <div class="space-y-3">
-                    <p class="text-[8px] font-black text-slate-500 uppercase">Reading Mode</p>
-                    <div class="grid grid-cols-2 gap-2">
-                        <button class="py-3 bg-white/5 border border-white/10 rounded-xl text-[9px] font-bold">VERTICAL</button>
-                        <button class="py-3 bg-white/5 border border-white/10 rounded-xl text-[9px] font-bold opacity-30">HORIZONTAL</button>
-                    </div>
-                </div>
-
-                <div class="space-y-3">
-                    <p class="text-[8px] font-black text-slate-500 uppercase">System</p>
-                    <div class="flex flex-col gap-2">
-                        <button class="flex items-center justify-between p-4 bg-white/5 rounded-xl text-[9px] font-bold">
-                            <span>CLEAR CACHE</span>
-                            <span class="text-slate-500">14MB</span>
-                        </button>
-                        <button class="flex items-center justify-between p-4 bg-white/5 rounded-xl text-[9px] font-bold">
-                            <span>NOTIFICATIONS</span>
-                            <div class="w-8 h-4 bg-green-500 rounded-full"></div>
-                        </button>
-                    </div>
-                </div>
+                <button onclick="supabase.auth.signOut().then(() => location.reload())" class="w-full py-4 bg-red-500/10 text-red-500 rounded-xl font-black text-[10px]">SEVER CONNECTION</button>
             </div>
-            
-            <button onclick="toggleModal('settings-modal')" class="w-full py-4 aura-bg rounded-xl font-black text-[10px] text-white">SAVE CHANGES</button>
         </div>
     </div>
 
-    <!-- PROFILE -->
-    <section id="profile-view" class="view hidden bg-black pt-20 px-8 flex flex-col">
-        <div class="flex flex-col items-center gap-6">
-            <div class="relative">
-                <img id="profile-avatar" src="" class="w-32 h-32 rounded-2xl border-2 border-white/5 shadow-2xl bg-slate-900 object-cover">
-                <button onclick="toggleModal('gemini-modal')" class="absolute -bottom-2 -right-2 w-8 h-8 bg-white text-black rounded-lg flex items-center justify-center text-lg">+</button>
-            </div>
-            <div class="text-center">
-                <h2 id="profile-display-name" class="font-impact text-4xl text-white">READER</h2>
-                <div class="flex items-center gap-2 mt-2">
-                    <span class="px-2 py-0.5 bg-purple-500/20 text-purple-400 text-[8px] font-black rounded level-label">LVL 1</span>
-                    <span class="text-[8px] text-slate-600 font-bold rank-label">NEWBIE</span>
-                </div>
-            </div>
-        </div>
-        
-        <div class="mt-12 space-y-4">
-            <input id="edit-name" type="text" placeholder="Name" class="w-full bg-white/5 border border-white/10 rounded-xl px-5 py-4 text-xs text-white">
-            <input id="edit-birth" type="date" class="w-full bg-white/5 border border-white/10 rounded-xl px-5 py-4 text-xs text-white">
-            <textarea id="edit-bio" placeholder="Bio" class="w-full bg-white/5 border border-white/10 rounded-xl px-5 py-4 text-xs text-white" rows="2"></textarea>
-            <button id="save-profile-btn" class="w-full aura-bg py-4 rounded-xl font-black text-[10px] text-white">UPDATE PROFILE</button>
-        </div>
-        
-        <button onclick="supabase.auth.signOut().then(() => location.reload())" class="mt-auto mb-10 text-red-500/40 text-[9px] font-black uppercase">Logout</button>
-    </section>
-
-    <!-- MODAL: GEMINI -->
-    <div id="gemini-modal" class="fixed inset-0 z-[100] hidden bg-black/95 flex items-center justify-center p-8">
-        <div class="w-full max-w-sm space-y-6">
-            <h3 class="font-impact text-3xl text-white text-center">AI AVATAR</h3>
-            <div id="ai-result-container" class="w-full aspect-square rounded-3xl border border-white/10 bg-slate-950 overflow-hidden relative">
-                <div id="ai-loading-overlay" class="hidden absolute inset-0 bg-black/90 flex items-center justify-center z-10">
-                    <div class="animate-spin w-8 h-8 border border-white border-t-transparent rounded-full"></div>
-                </div>
-                <img id="generated-avatar-preview" src="" class="hidden w-full h-full object-cover">
-                <p id="ai-placeholder-text" class="h-full flex items-center justify-center text-slate-700 text-[9px] font-black uppercase">Awaiting Idea</p>
-            </div>
-            <input id="ai-prompt" type="text" placeholder="Describe your character..." class="w-full bg-white/5 border border-white/10 rounded-xl px-5 py-4 text-xs text-white">
-            <div class="flex gap-4">
-                <button id="generate-ai-btn" class="flex-[2] aura-bg py-4 rounded-xl font-black text-[10px] text-white">GENERATE</button>
-                <button onclick="toggleModal('gemini-modal')" class="flex-1 bg-white/5 rounded-xl font-black text-[10px] text-slate-500">BACK</button>
-            </div>
-            <button id="apply-ai-avatar-btn" class="hidden w-full py-4 bg-white text-black rounded-xl font-black text-[10px]">SAVE AS AVATAR</button>
-        </div>
-    </div>
-
-    <!-- MODAL: RECOGNITION -->
-    <div id="recognition-modal" class="fixed inset-0 z-[100] hidden bg-black/90 flex items-center justify-center p-10">
-        <div class="w-full max-w-xs glass-panel rounded-[2rem] p-10 text-center space-y-6">
-            <div id="recognition-icon-box" class="text-5xl"></div>
-            <h3 id="recognition-name" class="font-impact text-3xl text-white">NAME</h3>
-            <p id="recognition-text" class="text-[10px] text-slate-400 font-medium"></p>
-            <button onclick="toggleModal('recognition-modal')" class="w-full py-3 bg-white/5 rounded-xl text-[9px] font-black text-slate-500">DISMISS</button>
+    <!-- RECOGNITION -->
+    <div id="recognition-modal" class="fixed inset-0 z-[100] hidden bg-black/95 flex items-center justify-center p-8">
+        <div class="w-full max-w-xs glass-panel p-12 rounded-[3rem] text-center space-y-8 relative">
+            <button onclick="toggleModal('recognition-modal')" class="absolute top-6 right-8 text-white/30 text-2xl">✕</button>
+            <div id="recognition-icon-box" class="text-6xl animate-bounce"></div>
+            <h3 id="recognition-name" class="horror-title text-3xl">NAME</h3>
+            <p id="recognition-text" class="text-[10px] text-slate-400 font-bold leading-relaxed"></p>
+            <button onclick="toggleModal('recognition-modal')" class="w-full py-4 aura-bg rounded-xl text-[10px] font-black text-white">HONORED</button>
         </div>
     </div>
 
