@@ -1,7 +1,5 @@
 {
-  "name": "A False Hope | Sanctum",
-  "description": "A magical mobile manga reader for the official series A False Hope.",
-  "requestFramePermissions": [
-    "camera"
-  ]
+  "name": "A False Hope | Reader",
+  "description": "The official mobile manga reader for A False Hope.",
+  "requestFramePermissions": []
 }

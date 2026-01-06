@@ -7,80 +7,94 @@
     <title>A FALSE HOPE | Reader</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&family=Bebas+Neue&family=Nosifer&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,700;0,900;1,900&display=swap" rel="stylesheet">
     <style>
-        :root { --aura-color: #a855f7; --aura-glow: rgba(168, 85, 247, 0.4); --void-black: #020617; }
+        :root { --aura-color: #a855f7; --void-black: #020617; }
         body { font-family: 'Inter', sans-serif; background: var(--void-black); color: #f8fafc; overflow: hidden; -webkit-tap-highlight-color: transparent; }
-        .font-impact { font-family: 'Bebas Neue', cursive; }
-        .font-horror { font-family: 'Nosifer', cursive; }
         
-        .view { height: 100vh; width: 100vw; overflow: hidden; position: fixed; inset: 0; }
+        /* Particle Background */
+        #particle-canvas { position: fixed; inset: 0; z-index: -1; pointer-events: none; }
+
+        .view { height: 100vh; width: 100vw; overflow: hidden; position: fixed; inset: 0; z-index: 10; }
         .hidden { display: none !important; }
 
-        .aura-text { color: var(--aura-color); text-shadow: 0 0 15px var(--aura-glow); transition: 0.5s; }
-        .aura-bg { background: var(--aura-color); box-shadow: 0 0 25px var(--aura-glow); transition: 0.5s; }
-        .glass-panel { background: rgba(10, 15, 30, 0.95); backdrop-filter: blur(30px); border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .glass-panel { background: rgba(10, 15, 30, 0.8); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255,255,255,0.05); }
 
-        /* Overhauled Hero Section */
-        .hero-container { position: relative; height: 60vh; width: 100%; overflow: hidden; }
-        .hero-image { width: 100%; height: 100%; object-fit: cover; object-position: top; }
+        /* Typography */
+        .bold-italic { font-weight: 900; font-style: italic; letter-spacing: -0.05em; }
+        
+        /* Hero UI Fixes */
+        .hero-wrapper { max-width: 900px; margin: 0 auto; position: relative; }
+        .hero-image-container { 
+            position: relative; width: 100%; height: 50vh; overflow: hidden; 
+            border-bottom: 2px solid rgba(168, 85, 247, 0.2);
+        }
+        .hero-image { width: 100%; height: 100%; object-fit: cover; }
         .hero-black-fade { 
             position: absolute; bottom: 0; left: 0; right: 0; height: 100%;
-            background: linear-gradient(to top, var(--void-black) 5%, transparent 60%, transparent 100%);
+            background: linear-gradient(to top, var(--void-black) 0%, transparent 70%);
         }
 
-        .horror-title-main {
-            font-size: clamp(2.5rem, 10vw, 4rem); line-height: 0.8; letter-spacing: -2px;
-            background: linear-gradient(to bottom, #fff 20%, var(--aura-color) 100%);
-            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-            filter: drop-shadow(0 0 15px rgba(0,0,0,1));
-            font-family: 'Nosifer', cursive; font-style: italic;
+        /* Desktop specific tweaks */
+        @media (min-width: 1024px) {
+            .hero-image-container { height: 60vh; border-radius: 0 0 40px 40px; }
+            .content-container { max-width: 800px; margin: 0 auto; }
         }
-
-        /* Nav & UI Components */
-        .xp-timeline { display: flex; gap: 1rem; overflow-x: auto; padding: 1rem 0; scrollbar-width: none; }
-        .xp-node { flex: 0 0 65px; text-align: center; }
-        .expandable-content { max-height: 0; overflow: hidden; transition: max-height 0.4s ease; }
-        .expanded .expandable-content { max-height: 600px; }
 
         .btn-action {
-            background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1);
-            padding: 12px; border-radius: 16px; color: #94a3b8; transition: 0.3s;
+            background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+            padding: 10px; border-radius: 12px; color: #94a3b8; transition: 0.2s;
         }
-        .btn-action:active { transform: scale(0.9); background: rgba(168, 85, 247, 0.1); border-color: var(--aura-color); }
-        
-        .star-rating .star { cursor: pointer; font-size: 28px; color: #1e293b; transition: 0.2s; }
-        .star.active { color: #f59e0b; text-shadow: 0 0 10px rgba(245, 158, 11, 0.5); }
+        .btn-action:active { transform: scale(0.95); background: rgba(168, 85, 247, 0.2); }
 
-        ::-webkit-scrollbar { width: 0px; }
+        .star-rating .star { cursor: pointer; font-size: 24px; color: #1e293b; transition: 0.2s; }
+        .star.active { color: #f59e0b; }
+
+        /* Scrollbars */
+        .scroll-container::-webkit-scrollbar { width: 4px; }
+        .scroll-container::-webkit-scrollbar-thumb { background: rgba(168, 85, 247, 0.3); border-radius: 10px; }
+
+        .message-badge {
+            position: absolute; top: 0; right: 0;
+            width: 10px; height: 10px; background: #ef4444;
+            border-radius: 50%; border: 2px solid var(--void-black);
+        }
+
+        /* Fixed Message Input */
+        .chat-input-container {
+            position: sticky; bottom: 0; background: rgba(10,15,30,0.95);
+            padding: 12px; border-top: 1px solid rgba(255,255,255,0.05);
+        }
     </style>
 </head>
 <body class="bg-[#020617]">
+    <canvas id="particle-canvas"></canvas>
 
     <!-- NAV BAR -->
-    <nav id="app-nav" class="fixed top-0 left-0 right-0 z-[80] hidden safe-top glass-panel">
-        <div class="px-4 py-3 flex items-center justify-between">
-            <div class="flex items-center gap-3">
-                <button id="master-back-btn" onclick="goBack()" class="p-2 hover:bg-white/5 rounded-full transition-colors hidden">
+    <nav id="app-nav" class="fixed top-0 left-0 right-0 z-[100] hidden safe-top glass-panel">
+        <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center gap-2 flex-1 min-w-0">
+                <button id="master-back-btn" onclick="goBack()" class="p-2 hover:bg-white/5 rounded-full hidden flex-shrink-0">
                     <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="3" d="M15 19l-7-7 7-7"></path></svg>
                 </button>
-                <div class="flex items-center gap-2 cursor-pointer" onclick="toggleModal('settings-modal')">
-                    <img id="nav-user-avatar" src="" class="w-9 h-9 rounded-full border border-white/20 object-cover">
-                    <div class="flex flex-col">
-                        <p id="nav-user-name" class="text-[10px] font-black tracking-widest text-white uppercase truncate max-w-[80px]">USER</p>
-                        <span id="nav-user-lvl" class="text-[8px] font-bold aura-text tracking-widest">MAX</span>
+                <div class="flex items-center gap-2 cursor-pointer overflow-hidden" onclick="toggleModal('settings-modal')">
+                    <img id="nav-user-avatar" src="" class="w-8 h-8 rounded-full border border-white/20 object-cover flex-shrink-0">
+                    <div class="flex flex-col min-w-0">
+                        <p id="nav-user-name" class="text-[10px] font-black tracking-tight text-white uppercase truncate">USER</p>
+                        <span id="nav-user-lvl" class="text-[8px] font-bold text-purple-400">MAX</span>
                     </div>
                 </div>
             </div>
 
-            <div class="flex items-center gap-1">
-                <button id="admin-btn" onclick="toggleModal('admin-modal')" class="p-2 hover:bg-white/5 rounded-full text-yellow-500 hidden">
+            <div class="flex items-center gap-1 flex-shrink-0">
+                <button id="admin-btn" onclick="toggleModal('admin-modal')" class="p-2 text-yellow-500 hidden">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
                 </button>
-                <button onclick="showView('readers-view')" class="p-2 hover:bg-white/5 rounded-full text-slate-400">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                <button onclick="showView('readers-view')" class="p-2 text-slate-400 relative">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+                    <div id="new-msg-dot" class="message-badge hidden"></div>
                 </button>
-                <button onclick="toggleModal('settings-modal')" class="p-2 hover:bg-white/5 rounded-full text-slate-400">
+                <button onclick="toggleModal('settings-modal')" class="p-2 text-slate-400">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
                 </button>
             </div>
@@ -89,114 +103,116 @@
 
     <!-- LOADING -->
     <section id="loading-view" class="view flex flex-col items-center justify-center bg-black">
-        <div class="font-horror text-2xl opacity-20 animate-pulse">A FALSE HOPE</div>
+        <div class="bold-italic text-4xl opacity-40">A FALSE HOPE</div>
+        <p class="text-[10px] mt-2 opacity-20 tracking-[0.5em] uppercase">Loading</p>
     </section>
 
     <!-- LOGIN -->
     <section id="login-view" class="view hidden flex flex-col items-center justify-center bg-black p-10">
-        <img src="https://i.ibb.co/0jNjDF8k/Cover2.png" class="absolute inset-0 w-full h-full object-cover opacity-30">
-        <div class="relative z-10 text-center space-y-16">
-            <h1 class="horror-title-main">A FALSE<br>HOPE</h1>
-            <button id="google-login-btn" class="px-12 py-4 bg-purple-600 text-white font-black text-[11px] tracking-[0.2em] rounded-full shadow-[0_0_30px_rgba(168,85,247,0.5)] transition-transform active:scale-95">ENTER THE SANCTUM</button>
+        <div class="text-center space-y-12">
+            <h1 class="bold-italic text-6xl text-white">A FALSE<br>HOPE</h1>
+            <button id="google-login-btn" class="px-10 py-4 bg-purple-600 text-white font-bold text-xs tracking-widest rounded-xl transition-all active:scale-95 shadow-lg shadow-purple-900/40">LOGIN WITH GOOGLE</button>
         </div>
     </section>
 
-    <!-- HOME OVERHAUL -->
-    <section id="home-view" class="view hidden bg-[#020617] overflow-y-auto pt-0 pb-32">
-        <div class="hero-container">
-            <img src="https://i.ibb.co/0jNjDF8k/Cover2.png" class="hero-image">
-            <div class="hero-black-fade"></div>
-        </div>
+    <!-- HOME -->
+    <section id="home-view" class="view hidden bg-transparent overflow-y-auto pt-0 pb-32">
+        <div class="hero-wrapper">
+            <div class="hero-image-container">
+                <img src="https://i.ibb.co/0jNjDF8k/Cover2.png" class="hero-image">
+                <div class="hero-black-fade"></div>
+            </div>
 
-        <div class="px-6 -mt-24 relative z-10 space-y-10">
-            <!-- Header Info -->
-            <div class="space-y-6">
-                <div class="flex items-center justify-between">
+            <div class="px-6 -mt-16 relative z-10 content-container space-y-8">
+                <div class="space-y-4">
                     <div class="flex flex-col gap-1">
-                        <span class="text-[9px] font-black text-purple-400 tracking-[0.3em] uppercase">OFFICIAL CHRONICLE</span>
-                        <h2 class="horror-title-main">A FALSE<br>HOPE</h2>
+                        <span class="text-[10px] font-black text-purple-400 tracking-widest uppercase">Action • Drama • Supernatural</span>
+                        <h2 class="bold-italic text-5xl text-white leading-[0.85]">A FALSE<br>HOPE</h2>
                     </div>
-                    <div class="flex flex-col gap-3">
-                        <button onclick="shareStory()" class="btn-action">
+                    
+                    <div class="flex items-center gap-4">
+                        <button onclick="showView('chapters-view')" class="bg-purple-600 hover:bg-purple-700 h-12 flex-1 rounded-xl font-bold text-sm tracking-widest shadow-lg shadow-purple-900/20">READ CHAPTERS</button>
+                        <button onclick="shareStory()" class="btn-action w-12 h-12 flex items-center justify-center">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path></svg>
                         </button>
-                        <button onclick="toggleModal('rating-modal')" class="btn-action">
+                        <button onclick="toggleModal('rating-modal')" class="btn-action w-12 h-12 flex items-center justify-center">
                             <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"></path></svg>
                         </button>
                     </div>
+                    
+                    <p class="text-[13px] text-slate-400 leading-relaxed">Follow the story of those who hope in a world designed to deceive. A digital masterpiece by the official team.</p>
                 </div>
-                <p class="text-[13px] text-slate-400 font-medium leading-relaxed max-w-[85%]">The digital manifestation of the void. A journey where hope is the ultimate deception. Follow the signals or vanish.</p>
-            </div>
 
-            <!-- Call to Actions -->
-            <div class="space-y-12">
-                <button onclick="showView('chapters-view')" class="aura-bg w-full h-16 flex items-center justify-center gap-3 rounded-2xl font-impact text-2xl text-white tracking-[0.2em] italic shadow-[0_10px_40px_rgba(168,85,247,0.3)]">
-                    COMMENCE READING
-                </button>
-                
-                <div class="space-y-4">
-                    <p class="text-[10px] font-black text-slate-600 uppercase tracking-[0.4em] text-center">Souls of Recognition</p>
-                    <div class="flex gap-4">
-                        <button onclick="openRecognition('MINASHA')" class="flex-1 bg-white/[0.03] border border-white/10 p-4 rounded-2xl flex flex-col items-center gap-2 transition-all active:bg-purple-500/10 active:border-purple-500/40">
-                            <span class="text-xl">❤️</span>
-                            <span class="text-[9px] font-black text-white tracking-widest">MINASHA</span>
-                        </button>
-                        <button onclick="openRecognition('AROSHA')" class="flex-1 bg-white/[0.03] border border-white/10 p-4 rounded-2xl flex flex-col items-center gap-2 transition-all active:bg-purple-500/10 active:border-purple-500/40">
-                            <span class="text-xl">🔥</span>
-                            <span class="text-[9px] font-black text-white tracking-widest">AROSHA</span>
-                        </button>
-                    </div>
+                <div class="flex gap-2">
+                    <button onclick="openRecognition('MINASHA')" class="px-4 py-2 rounded-lg bg-white/5 border border-white/5 text-[10px] font-bold text-white flex items-center gap-2">
+                        <span class="text-xs">❤️</span> MINASHA
+                    </button>
+                    <button onclick="openRecognition('AROSHA')" class="px-4 py-2 rounded-lg bg-white/5 border border-white/5 text-[10px] font-bold text-white flex items-center gap-2">
+                        <span class="text-xs">🔥</span> AROSHA
+                    </button>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- SETTINGS & PROFILE MODAL -->
-    <div id="settings-modal" class="fixed inset-0 z-[100] hidden bg-black/95 backdrop-blur-2xl flex items-center justify-center p-6">
-        <div class="w-full max-w-sm glass-panel p-8 rounded-[2rem] space-y-8 relative overflow-hidden border border-white/10">
-            <button onclick="toggleModal('settings-modal')" class="absolute top-6 right-6 text-white/20 text-xl">✕</button>
+    <!-- SETTINGS (REDESIGNED) -->
+    <div id="settings-modal" class="fixed inset-0 z-[200] hidden bg-black/90 backdrop-blur-xl flex items-center justify-center p-4">
+        <div class="w-full max-w-sm glass-panel p-6 rounded-2xl space-y-6 border border-white/10">
+            <div class="flex justify-between items-center">
+                <h3 class="font-bold text-sm text-white tracking-widest uppercase">Profile Settings</h3>
+                <button onclick="toggleModal('settings-modal')" class="text-slate-500">✕</button>
+            </div>
             
-            <div class="flex flex-col items-center gap-4">
+            <div class="flex items-center gap-4 p-4 bg-white/5 rounded-xl">
                 <div class="relative">
-                    <img id="settings-avatar" src="" class="w-20 h-20 rounded-2xl border-2 border-purple-500/20 object-cover shadow-2xl">
-                    <div class="absolute -bottom-2 -right-2 aura-bg px-2 py-0.5 rounded text-[8px] font-black level-label">MAX</div>
+                    <img id="settings-avatar" src="" class="w-14 h-14 rounded-xl object-cover">
+                    <div class="absolute -bottom-1 -right-1 bg-purple-600 px-1 rounded text-[8px] font-black level-label">MAX</div>
                 </div>
-                <h3 class="font-impact text-2xl text-white tracking-widest">SANCTUM PROFILE</h3>
+                <div class="flex-1 min-w-0">
+                    <p id="settings-user-name" class="text-xs font-black text-white truncate uppercase">NAME</p>
+                    <p id="settings-user-lvl-text" class="text-[10px] text-slate-500 font-bold uppercase">Level 1</p>
+                </div>
             </div>
 
-            <!-- Profile Edit Section -->
-            <div class="space-y-4">
+            <div class="space-y-3">
                 <div class="space-y-1">
-                    <label class="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Vessel Name</label>
-                    <input id="profile-edit-name" type="text" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-purple-500">
+                    <label class="text-[9px] font-bold text-slate-500 uppercase ml-1">Username</label>
+                    <input id="profile-edit-name" type="text" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-purple-500">
                 </div>
                 <div class="space-y-1">
-                    <label class="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Echo / Bio</label>
-                    <textarea id="profile-edit-bio" rows="2" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none resize-none focus:border-purple-500"></textarea>
+                    <label class="text-[9px] font-bold text-slate-500 uppercase ml-1">Bio</label>
+                    <textarea id="profile-edit-bio" rows="2" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none resize-none focus:border-purple-500"></textarea>
                 </div>
-                <button onclick="updateProfile()" class="w-full bg-purple-600/20 border border-purple-500/40 py-3 rounded-xl font-black text-[10px] tracking-widest text-purple-400 uppercase">UPDATE IDENTITY</button>
+                <button onclick="updateProfile()" class="w-full bg-purple-600 py-2.5 rounded-lg font-bold text-[10px] uppercase tracking-widest text-white">SAVE CHANGES</button>
             </div>
 
-            <!-- XP Tracking -->
-            <div class="space-y-4 pt-4 border-t border-white/5">
-                <div id="xp-guide-container" class="xp-timeline"></div>
-                <div class="space-y-3 bg-white/5 p-4 rounded-2xl">
-                    <div class="flex justify-between items-center mb-1">
-                        <span class="text-[10px] text-white font-black level-label uppercase">LVL 1</span>
-                        <span id="profile-xp-text" class="text-[10px] text-slate-500 font-black">0 / 100 XP</span>
-                    </div>
-                    <div class="h-1.5 bg-black rounded-full overflow-hidden"><div class="xp-bar-fill h-full w-0"></div></div>
+            <div class="pt-4 border-t border-white/5">
+                <div id="xp-guide-container" class="flex gap-2 overflow-x-auto pb-2 scroll-container"></div>
+                <div class="mt-2 h-1 bg-black rounded-full overflow-hidden">
+                    <div class="xp-bar-fill h-full w-0 bg-purple-500"></div>
                 </div>
+                <div class="flex justify-between mt-1"><span class="text-[8px] text-slate-500 font-bold uppercase" id="profile-xp-text">0 / 100 XP</span></div>
             </div>
 
-            <button onclick="supabase.auth.signOut().then(() => location.reload())" class="w-full py-2 text-red-500/40 font-bold text-[9px] tracking-widest uppercase">DISCONNECT SOUL</button>
+            <button onclick="supabase.auth.signOut().then(() => location.reload())" class="w-full text-red-500/60 font-bold text-[9px] tracking-widest uppercase py-2">LOGOUT</button>
         </div>
     </div>
 
+    <!-- CHAPTERS -->
+    <section id="chapters-view" class="view hidden bg-transparent pt-16 flex flex-col">
+        <div id="chapters-list-mobile" class="flex-1 overflow-y-auto p-4 space-y-4 pb-32 scroll-container"></div>
+    </section>
+
+    <!-- READERS -->
+    <section id="readers-view" class="view hidden bg-transparent pt-16 flex flex-col">
+        <div class="px-6 py-4 flex justify-between items-center"><h2 class="font-bold text-xs text-white uppercase tracking-widest">Readers</h2></div>
+        <div id="readers-list" class="flex-1 overflow-y-auto px-4 space-y-3 pt-4 pb-32 scroll-container"></div>
+    </section>
+
     <!-- RATING MODAL -->
     <div id="rating-modal" class="fixed inset-0 z-[200] hidden bg-black/95 flex items-center justify-center p-6">
-        <div class="w-full max-w-sm glass-panel p-10 rounded-[2.5rem] text-center space-y-8 border border-white/10">
-            <h3 class="font-horror text-2xl text-white italic">RATE THE HOPE</h3>
+        <div class="w-full max-w-sm glass-panel p-8 rounded-2xl text-center space-y-6 border border-white/10">
+            <h3 class="font-bold text-sm text-white uppercase tracking-widest">Rate the Manga</h3>
             <div id="star-container" class="star-rating justify-center py-2">
                 <span onclick="setRating(1)" class="star">★</span>
                 <span onclick="setRating(2)" class="star">★</span>
@@ -204,43 +220,39 @@
                 <span onclick="setRating(4)" class="star">★</span>
                 <span onclick="setRating(5)" class="star">★</span>
             </div>
-            <button onclick="submitRating()" class="w-full py-4 aura-bg rounded-2xl font-black text-[11px] uppercase tracking-widest shadow-lg">SUBMIT ECHO</button>
-            <button onclick="toggleModal('rating-modal')" class="text-slate-600 text-[10px] uppercase font-bold tracking-widest">CANCEL</button>
+            <button onclick="submitRating()" class="w-full py-3 bg-purple-600 rounded-xl font-bold text-[11px] uppercase tracking-widest">SUBMIT</button>
+            <button onclick="toggleModal('rating-modal')" class="text-slate-600 text-[10px] font-bold uppercase">CANCEL</button>
         </div>
     </div>
 
-    <!-- CHAPTERS -->
-    <section id="chapters-view" class="view hidden bg-black pt-16">
-        <div id="chapters-list-mobile" class="h-full overflow-y-auto p-4 space-y-4 pb-32"></div>
-    </section>
-
-    <!-- READERS -->
-    <section id="readers-view" class="view hidden bg-black pt-16">
-        <div class="px-6 py-4 border-b border-white/5 flex justify-between items-center">
-            <h2 class="font-impact text-2xl text-white tracking-widest uppercase">READERS</h2>
-            <span class="text-[9px] font-black text-purple-400 uppercase tracking-widest">Sanctum Souls</span>
-        </div>
-        <div id="readers-list" class="h-full overflow-y-auto px-4 space-y-4 pt-4 pb-32"></div>
-    </section>
-
-    <!-- ADMIN MODAL -->
+    <!-- ADMIN -->
     <div id="admin-modal" class="fixed inset-0 z-[200] hidden bg-black/95 flex items-center justify-center p-6">
-        <div class="w-full max-w-sm glass-panel p-8 rounded-3xl space-y-6 border border-yellow-500/20">
-            <h3 class="font-impact text-2xl text-yellow-500 tracking-widest">ADMIN ARCHIVE</h3>
-            <div id="admin-user-list" class="max-h-[450px] overflow-y-auto space-y-4 pr-2"></div>
-            <button onclick="toggleModal('admin-modal')" class="w-full py-3 bg-white/5 rounded-xl text-[10px] font-black text-white/30 uppercase">CLOSE</button>
+        <div class="w-full max-w-sm glass-panel p-6 rounded-2xl space-y-6 border border-yellow-500/20">
+            <h3 class="font-bold text-xs text-yellow-500 uppercase tracking-widest">Admin Control</h3>
+            <div id="admin-user-list" class="max-h-[400px] overflow-y-auto space-y-4 pr-2 scroll-container"></div>
+            <button onclick="toggleModal('admin-modal')" class="w-full py-2 bg-white/5 rounded-lg text-[10px] font-bold text-white/30 uppercase">CLOSE</button>
         </div>
     </div>
 
     <!-- READER -->
     <section id="reader-view" class="view hidden bg-black flex flex-col overflow-y-auto">
-        <div id="reader-progress-bar" class="fixed top-0 left-0 h-1 aura-bg w-0 z-[100]"></div>
-        <div id="reader-pages" class="w-full"></div>
+        <div id="reader-progress-bar" class="fixed top-0 left-0 h-1 bg-purple-600 w-0 z-[200]"></div>
+        <div id="reader-pages" class="w-full max-w-3xl mx-auto"></div>
         <div class="p-20 text-center safe-bottom">
-            <h3 class="font-horror text-2xl text-white mb-8 opacity-40 italic">END OF CHAPTER</h3>
-            <button onclick="goBack()" class="px-12 py-3 border border-purple-500/40 rounded-full font-black text-[10px] text-purple-400 tracking-widest uppercase">GO BACK</button>
+            <h3 class="bold-italic text-2xl text-white mb-8 opacity-40">CHAPTER END</h3>
+            <button onclick="goBack()" class="px-10 py-3 border border-purple-500/40 rounded-full font-bold text-[10px] text-purple-400 uppercase tracking-widest">CLOSE</button>
         </div>
     </section>
+
+    <!-- RECOGNITION -->
+    <div id="recognition-modal" class="fixed inset-0 z-[250] hidden bg-black/95 flex items-center justify-center p-8">
+        <div class="w-full max-w-xs glass-panel p-10 rounded-2xl text-center space-y-6 border border-purple-500/20">
+            <div id="recognition-icon-box" class="text-4xl"></div>
+            <h3 id="recognition-name" class="font-bold text-lg text-white tracking-widest uppercase">NAME</h3>
+            <p id="recognition-text" class="text-[11px] text-slate-400 leading-relaxed"></p>
+            <button onclick="toggleModal('recognition-modal')" class="w-full py-3 bg-purple-600 rounded-xl text-[10px] font-bold text-white uppercase tracking-widest">CLOSE</button>
+        </div>
+    </div>
 
     <script src="index.js" type="module"></script>
 </body>
