@@ -1,5 +1,7 @@
 {
-  "name": "Lumina Reader",
-  "description": "A sleek, modern digital reading platform featuring a seamless transition from login to library, detailed chapter navigation, and a focused reading environment.",
-  "requestFramePermissions": []
+  "name": "A False Hope | Sanctum",
+  "description": "A magical mobile manga reader for the official series A False Hope.",
+  "requestFramePermissions": [
+    "camera"
+  ]
 }

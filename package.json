@@ -1,5 +1,5 @@
 {
-  "name": "lumina-reader",
+  "name": "a-false-hope-|-sanctum",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -9,7 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-
+    "@google/genai": "^1.34.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

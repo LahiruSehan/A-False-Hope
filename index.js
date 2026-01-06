@@ -1,4 +1,6 @@
 
+import { GoogleGenAI } from "@google/genai";
+
 // YOUR REAL SUPABASE CREDENTIALS
 const SUPABASE_URL = 'https://qpagyfoedsrbenhsoemx.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_zaDorGnE20zlG805wQ3SXA_81UbgmLY';
@@ -8,247 +10,287 @@ const supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SU
 
 // Application State
 let currentUser = null;
-let currentChapterId = 1; // numeric for easy folder mapping
+let profileData = null;
+let currentChapterId = 1;
 const TOTAL_CHAPTERS = 30;
 
-function getRedirectUrl() {
-    return window.location.href.split('#')[0].split('?')[0];
-}
+// Initialize Google AI
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
+// Utility: Show View
 window.showView = function(viewId) {
-    document.querySelectorAll('.view').forEach(view => {
-        view.classList.add('hidden');
-    });
-    
+    document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
     const target = document.getElementById(viewId);
-    if (target) {
-        target.classList.remove('hidden');
+    if (target) target.classList.remove('hidden');
+
+    const nav = document.getElementById('app-nav');
+    if (viewId !== 'loading-view' && viewId !== 'login-view') {
+        nav.classList.remove('hidden');
+    } else {
+        nav.classList.add('hidden');
     }
-    
-    if (viewId === 'reader-view') loadReaderData();
-    if (viewId === 'chapters-view') loadAllChapterStats();
-    if (viewId === 'home-view') loadHomeStats();
-    
+
+    if (viewId === 'chapters-view') loadChapters();
+    if (viewId === 'profile-view') fillProfileForm();
     window.scrollTo(0, 0);
 }
 
-// 1. AUTH LOGIC
+// Utility: Toggle Modal
+window.toggleModal = function(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) modal.classList.toggle('hidden');
+}
+
+// 1. AUTH & PROFILE
 async function checkAuth() {
     if (!supabase) return;
 
     const { data: { user } } = await supabase.auth.getUser();
     currentUser = user;
-    
-    supabase.auth.onAuthStateChange((event, session) => {
+
+    if (user) {
+        await fetchProfile();
+        window.showView('home-view');
+    } else {
+        window.showView('login-view');
+    }
+
+    supabase.auth.onAuthStateChange(async (event, session) => {
         if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
             currentUser = session?.user || null;
-            if (currentUser) window.showView('home-view');
+            if (currentUser) {
+                await fetchProfile();
+                window.showView('home-view');
+            }
         } else if (event === 'SIGNED_OUT') {
             currentUser = null;
             window.showView('login-view');
         }
     });
+}
 
-    if (user) {
-        window.showView('home-view');
+async function fetchProfile() {
+    if (!currentUser) return;
+    
+    // Check if profile exists
+    const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', currentUser.id)
+        .single();
+
+    if (error && error.code === 'PGRST116') {
+        // Create profile if missing
+        const newProfile = {
+            id: currentUser.id,
+            display_name: currentUser.user_metadata.full_name || 'New Mage',
+            avatar_url: currentUser.user_metadata.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser.id}`
+        };
+        await supabase.from('profiles').insert(newProfile);
+        profileData = newProfile;
     } else {
-        window.showView('login-view');
+        profileData = data;
+    }
+    updateNavUI();
+}
+
+function updateNavUI() {
+    if (!profileData) return;
+    document.getElementById('nav-user-name').innerText = profileData.display_name.toUpperCase();
+    document.getElementById('nav-user-avatar').src = profileData.avatar_url;
+    document.getElementById('profile-avatar').src = profileData.avatar_url;
+    document.getElementById('profile-display-name').innerText = profileData.display_name.toUpperCase();
+}
+
+function fillProfileForm() {
+    if (!profileData) return;
+    document.getElementById('edit-name').value = profileData.display_name;
+    document.getElementById('edit-birth').value = profileData.birth_date || '';
+    document.getElementById('edit-bio').value = profileData.bio || '';
+}
+
+async function saveProfile() {
+    const btn = document.getElementById('save-profile-btn');
+    btn.disabled = true;
+    btn.innerText = 'SAVING...';
+
+    const updates = {
+        display_name: document.getElementById('edit-name').value,
+        birth_date: document.getElementById('edit-birth').value,
+        bio: document.getElementById('edit-bio').value,
+        updated_at: new Date()
+    };
+
+    const { error } = await supabase
+        .from('profiles')
+        .update(updates)
+        .eq('id', currentUser.id);
+
+    if (error) alert(error.message);
+    else {
+        profileData = { ...profileData, ...updates };
+        updateNavUI();
+        alert('Scroll Updated Successfully!');
+    }
+    btn.disabled = false;
+    btn.innerText = 'SAVE CHANGES';
+}
+
+// 2. AI GENERATION (GEMINI)
+async function generateAIAvatar() {
+    const promptInput = document.getElementById('ai-prompt');
+    const prompt = promptInput.value.trim();
+    if (!prompt) return alert('Describe your form, Mage!');
+
+    const loader = document.getElementById('ai-loading-overlay');
+    const preview = document.getElementById('generated-avatar-preview');
+    const placeholder = document.getElementById('ai-placeholder-text');
+    const applyBtn = document.getElementById('apply-ai-avatar-btn');
+
+    loader.classList.remove('hidden');
+    placeholder.classList.add('hidden');
+
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash-image',
+            contents: { parts: [{ text: `A high-quality fantasy manga style character portrait: ${prompt}. Cinematic lighting, detailed anime art style.` }] },
+            config: { imageConfig: { aspectRatio: "1:1" } }
+        });
+
+        let base64 = null;
+        for (const part of response.candidates[0].content.parts) {
+            if (part.inlineData) {
+                base64 = part.inlineData.data;
+                break;
+            }
+        }
+
+        if (base64) {
+            const dataUrl = `data:image/png;base64,${base64}`;
+            preview.src = dataUrl;
+            preview.classList.remove('hidden');
+            applyBtn.classList.remove('hidden');
+        }
+    } catch (err) {
+        console.error(err);
+        alert('The AI Oracle is currently resting. Try again later.');
+    } finally {
+        loader.classList.add('hidden');
     }
 }
 
-async function loginWithGoogle() {
-    if (!supabase) return;
-    const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: { redirectTo: getRedirectUrl() }
-    });
-    if (error) alert(error.message);
+async function applyAIAvatar() {
+    const dataUrl = document.getElementById('generated-avatar-preview').src;
+    if (!dataUrl) return;
+
+    // In a real app, you would upload to Supabase Storage. 
+    // For this prototype, we save the base64 string directly to the profile's avatar_url
+    const { error } = await supabase
+        .from('profiles')
+        .update({ avatar_url: dataUrl })
+        .eq('id', currentUser.id);
+
+    if (!error) {
+        profileData.avatar_url = dataUrl;
+        updateNavUI();
+        toggleModal('gemini-modal');
+        alert('Identity Manifested!');
+    }
 }
 
-// 2. CHAPTERS GENERATION & STATS
-async function loadAllChapterStats() {
-    const grid = document.getElementById('chapters-grid');
-    if (!grid) return;
+// 3. SETTINGS & THEMING
+window.updateAura = function(color) {
+    document.documentElement.style.setProperty('--aura-color', color);
+    const glow = hexToRgba(color, 0.5);
+    document.documentElement.style.setProperty('--aura-glow', glow);
+    localStorage.setItem('aura-color', color);
+}
 
-    // Build the 30 chapters structure
-    let chaptersHtml = '';
+window.updateFont = function(fontFamily) {
+    document.body.style.fontFamily = `'${fontFamily}', sans-serif`;
+    localStorage.setItem('app-font', fontFamily);
+}
+
+function hexToRgba(hex, alpha) {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function loadSettings() {
+    const savedColor = localStorage.getItem('aura-color');
+    const savedFont = localStorage.getItem('app-font');
+    if (savedColor) updateAura(savedColor);
+    if (savedFont) updateFont(savedFont);
+}
+
+// 4. CONTENT & MODALS
+function loadChapters() {
+    const container = document.getElementById('chapters-list-mobile');
+    if (!container) return;
+
+    let html = '';
     for (let i = 1; i <= TOTAL_CHAPTERS; i++) {
-        chaptersHtml += `
-            <div id="chapter-card-${i}" class="group cursor-pointer relative" onclick="openChapter(${i})">
-                <div class="relative aspect-[4/5] overflow-hidden rounded-2xl glass border border-slate-800 group-hover:border-purple-500 transition-all pulse-card">
-                    <img src="https://picsum.photos/id/${100 + i}/300/400" class="w-full h-full object-cover opacity-60 group-hover:opacity-100 group-hover:scale-110 transition-all duration-700">
-                    <div class="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent"></div>
-                    <div class="absolute top-4 left-4 font-tech text-xs font-black italic text-purple-400 text-glow">CH.${String(i).padStart(2, '0')}</div>
-                    
-                    <div class="absolute bottom-0 left-0 right-0 p-6 translate-y-2 group-hover:translate-y-0 transition-transform">
-                        <div class="flex items-center gap-4 text-[10px] font-bold uppercase tracking-widest">
-                            <div class="flex items-center gap-1.5 text-pink-500">
-                                <svg class="w-3 h-3 fill-current" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
-                                <span id="likes-count-${i}">...</span>
-                            </div>
-                            <div class="flex items-center gap-1.5 text-blue-400">
-                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"></path></svg>
-                                <span id="comments-count-${i}">...</span>
-                            </div>
-                        </div>
+        html += `
+            <div class="glass-panel p-5 rounded-3xl flex items-center justify-between group active:scale-[0.98] transition-all" onclick="openReader(${i})">
+                <div class="flex items-center gap-5">
+                    <div class="w-12 h-12 rounded-2xl bg-slate-900 border border-white/5 flex items-center justify-center font-magic text-purple-500 group-hover:aura-bg group-hover:text-white transition-all">
+                        ${String(i).padStart(2, '0')}
                     </div>
+                    <div>
+                        <h4 class="font-bold text-sm">Chapter ${i}</h4>
+                        <p class="text-[9px] text-slate-500 uppercase tracking-widest">Available to read</p>
+                    </div>
+                </div>
+                <div class="text-purple-500">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
                 </div>
             </div>
         `;
     }
-    grid.innerHTML = chaptersHtml;
-
-    // Fetch batch stats from Supabase
-    fetchGlobalStats();
+    container.innerHTML = html;
 }
 
-async function fetchGlobalStats() {
-    if (!supabase) return;
-    
-    // In a real app, we'd do a grouped select. For now, we'll iterate or show placeholders
-    // to keep it performant. Let's try to fetch all likes/comments for the project.
-    const { data: likes } = await supabase.from('likes').select('chapter_id');
-    const { data: comments } = await supabase.from('comments').select('chapter_id');
+window.openRecognition = function(name, type) {
+    const iconBox = document.getElementById('recognition-icon-box');
+    const nameEl = document.getElementById('recognition-name');
+    const textEl = document.getElementById('recognition-text');
+    const modal = document.getElementById('recognition-modal');
 
-    for (let i = 1; i <= TOTAL_CHAPTERS; i++) {
-        const lCount = likes?.filter(l => l.chapter_id == `chapter-${i}`).length || 0;
-        const cCount = comments?.filter(c => c.chapter_id == `chapter-${i}`).length || 0;
-        
-        const lEl = document.getElementById(`likes-count-${i}`);
-        const cEl = document.getElementById(`comments-count-${i}`);
-        if (lEl) lEl.innerText = lCount;
-        if (cEl) cEl.innerText = cCount;
+    nameEl.innerText = name;
+    if (name === 'MINASHA') {
+        iconBox.innerHTML = '❤️';
+        iconBox.className = 'w-20 h-20 mx-auto rounded-full flex items-center justify-center text-3xl shadow-2xl bg-pink-500/20 text-pink-500';
+        textEl.innerText = "The Heart of the Archive. Your kindness fuels our hope in the darkest of chapters.";
+    } else {
+        iconBox.innerHTML = '🔥';
+        iconBox.className = 'w-20 h-20 mx-auto rounded-full flex items-center justify-center text-3xl shadow-2xl bg-orange-500/20 text-orange-500';
+        textEl.innerText = "The Flame of Persistence. Your passion ignites the creative spirits of this sanctum.";
     }
+
+    modal.classList.remove('hidden');
 }
 
-// 3. READER LOGIC
-window.openChapter = function(id) {
+window.openReader = function(id) {
+    // Basic redirection to the reader (you can refine the reader UI later if needed)
     currentChapterId = id;
-    window.showView('reader-view');
+    alert(`Entering Archive: Chapter ${id}. (Images would load from chapterimages${id}/...)`);
 }
 
-async function loadReaderData() {
-    const container = document.getElementById('manga-pages-container');
-    const title = document.getElementById('reader-chapter-title');
-    if (!container) return;
-
-    title.innerText = `DATA STREAM // CH.${String(currentChapterId).padStart(2, '0')}`;
-    container.innerHTML = `<div class="p-20 text-slate-500 font-tech animate-pulse">LOADING ASSETS...</div>`;
-
-    // Simulate loading images from "chapterimages{ID}/page_{N}.jpg"
-    // Since we don't have the real files, we'll mock them with placeholders.
-    // In your real setup, you'd loop 1 to 20 or similar.
-    let imagesHtml = '';
-    for (let i = 1; i <= 5; i++) {
-        // ACTUAL FOLDER LOGIC: `chapterimages${currentChapterId}/page_${i}.jpg`
-        const mockUrl = `https://picsum.photos/id/${(currentChapterId * 10) + i}/800/1200`;
-        imagesHtml += `<img src="${mockUrl}" class="manga-img shadow-2xl mb-1" alt="Page ${i}" loading="lazy">`;
-    }
-    container.innerHTML = imagesHtml;
-
-    loadSocialForReader();
-}
-
-async function loadSocialForReader() {
-    const cid = `chapter-${currentChapterId}`;
-    
-    // Likes
-    const { count: likeCount } = await supabase
-        .from('likes')
-        .select('*', { count: 'exact', head: true })
-        .eq('chapter_id', cid);
-    
-    document.getElementById('reader-like-count').innerText = `${likeCount || 0} LIKES`;
-
-    // Heart Icon State
-    if (currentUser) {
-        const { data: userLike } = await supabase
-            .from('likes')
-            .select('*')
-            .eq('user_id', currentUser.id)
-            .eq('chapter_id', cid)
-            .single();
-        
-        const icon = document.getElementById('reader-heart-icon');
-        if (userLike) {
-            icon.classList.add('text-pink-500', 'fill-current');
-        } else {
-            icon.classList.remove('text-pink-500', 'fill-current');
-        }
-    }
-
-    // Comments
-    const { data: comments } = await supabase
-        .from('comments')
-        .select('*')
-        .eq('chapter_id', cid)
-        .order('created_at', { ascending: false });
-
-    const list = document.getElementById('reader-comments-list');
-    if (comments && comments.length > 0) {
-        list.innerHTML = comments.map(c => `
-            <div class="glass p-4 rounded-2xl border-l-2 border-purple-500">
-                <div class="flex justify-between items-center mb-1">
-                    <span class="text-[10px] font-black italic text-purple-400">USER_${c.user_id.slice(0, 5).toUpperCase()}</span>
-                    <span class="text-[8px] text-slate-600 uppercase tracking-widest">${new Date(c.created_at).toLocaleDateString()}</span>
-                </div>
-                <p class="text-xs text-slate-300 leading-relaxed">${c.content}</p>
-            </div>
-        `).join('');
-    } else {
-        list.innerHTML = `<div class="text-center py-10 text-slate-700 text-[10px] uppercase tracking-widest italic">No transmissions recorded</div>`;
-    }
-}
-
-async function toggleLike() {
-    if (!currentUser) return alert('VERIFICATION REQUIRED: Login to interact');
-    const cid = `chapter-${currentChapterId}`;
-    
-    const { data: existing } = await supabase
-        .from('likes')
-        .select('*')
-        .eq('user_id', currentUser.id)
-        .eq('chapter_id', cid)
-        .single();
-
-    if (existing) {
-        await supabase.from('likes').delete().eq('id', existing.id);
-    } else {
-        await supabase.from('likes').insert({ chapter_id: cid });
-    }
-    loadSocialForReader();
-}
-
-async function postComment() {
-    const input = document.getElementById('comment-input');
-    if (!input || !input.value.trim() || !currentUser) return;
-    
-    const cid = `chapter-${currentChapterId}`;
-    const { error } = await supabase.from('comments').insert({
-        chapter_id: cid,
-        content: input.value.trim()
-    });
-    
-    if (!error) {
-        input.value = '';
-        loadSocialForReader();
-    }
-}
-
-async function loadHomeStats() {
-    if (!supabase) return;
-    const { count } = await supabase.from('likes').select('*', { count: 'exact', head: true });
-    const el = document.getElementById('global-reader-count');
-    if (el) el.innerText = (count || 0) + 1240; // Add some base numbers for "hype"
-}
-
+// 5. EVENT LISTENERS
 document.addEventListener('DOMContentLoaded', () => {
+    loadSettings();
     checkAuth();
 
-    document.getElementById('google-login-btn')?.addEventListener('click', loginWithGoogle);
-    document.getElementById('logout-btn')?.addEventListener('click', () => {
-        supabase.auth.signOut().then(() => location.reload());
+    document.getElementById('google-login-btn')?.addEventListener('click', () => {
+        supabase.auth.signInWithOAuth({
+            provider: 'google',
+            options: { redirectTo: window.location.href.split('#')[0].split('?')[0] }
+        });
     });
-    document.getElementById('reader-like-btn')?.addEventListener('click', toggleLike);
-    document.getElementById('post-comment-btn')?.addEventListener('click', postComment);
+
+    document.getElementById('save-profile-btn')?.addEventListener('click', saveProfile);
+    document.getElementById('generate-ai-btn')?.addEventListener('click', generateAIAvatar);
+    document.getElementById('apply-ai-avatar-btn')?.addEventListener('click', applyAIAvatar);
 });
