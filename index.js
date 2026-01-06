@@ -50,10 +50,10 @@ function initParticles() {
         reset() {
             this.x = Math.random() * canvas.width;
             this.y = Math.random() * canvas.height;
-            this.size = Math.random() * 2;
-            this.speedX = (Math.random() - 0.5) * 0.3;
-            this.speedY = (Math.random() - 0.5) * 0.3;
-            this.opacity = Math.random() * 0.5;
+            this.size = Math.random() * 1.5;
+            this.speedX = (Math.random() - 0.5) * 0.2;
+            this.speedY = (Math.random() - 0.5) * 0.2;
+            this.opacity = Math.random() * 0.3;
         }
         update() {
             this.x += this.speedX;
@@ -70,7 +70,7 @@ function initParticles() {
         }
     }
 
-    for (let i = 0; i < 50; i++) particles.push(new Particle());
+    for (let i = 0; i < 40; i++) particles.push(new Particle());
     
     function animate() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -183,7 +183,7 @@ function getLevelInfo(xp) {
     }
     const next = LEVEL_CONFIG.find(c => c.level === current.level + 1) || { level: 10, xp: 100 };
     const progress = current.level === 10 ? 100 : ((xp - current.xp) / (next.xp - current.xp)) * 100;
-    const label = current.level === 10 ? "MAX" : `Level ${current.level}`;
+    const label = current.level === 10 ? "MAX" : `LVL ${current.level}`;
     return { ...current, progress, nextXp: next.xp, label };
 }
 
@@ -205,9 +205,9 @@ function renderXPGuide() {
     container.innerHTML = LEVEL_CONFIG.map(l => {
         const isCurrent = (profileData?.level || 1) === l.level;
         return `
-        <div class="flex-shrink-0 text-center w-12 opacity-${isCurrent ? '100' : '20'}">
-            <div class="w-1.5 h-1.5 rounded-full mx-auto mb-1 ${isCurrent ? 'bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.8)]' : 'bg-white/10'}"></div>
-            <p class="text-[6px] font-black text-white uppercase truncate">${l.name}</p>
+        <div class="flex-shrink-0 text-center w-10 opacity-${isCurrent ? '100' : '20'}">
+            <div class="w-1 h-1 rounded-full mx-auto mb-1 ${isCurrent ? 'bg-purple-500 shadow-[0_0_5px_rgba(168,85,247,1)]' : 'bg-white/10'}"></div>
+            <p class="text-[5px] font-black text-white uppercase truncate tracking-tighter">${l.name}</p>
         </div>
     `}).join('');
 }
@@ -215,7 +215,7 @@ function renderXPGuide() {
 // Chapters
 async function loadChapters() {
     const container = document.getElementById('chapters-list-mobile');
-    container.innerHTML = '<div class="text-center p-10 opacity-20 uppercase text-[10px] tracking-widest">Loading chapters...</div>';
+    container.innerHTML = '<div class="text-center p-10 opacity-20 uppercase text-[9px] tracking-widest">Loading Records...</div>';
     
     const { data: likes } = await supabase.from('chapter_likes').select('chapter_id, user_id');
     const { data: comments } = await supabase.from('chapter_comments').select('chapter_id');
@@ -228,29 +228,28 @@ async function loadChapters() {
 
         html += `
             <div id="chapter-card-${i}" class="glass-panel rounded-xl border border-white/5 overflow-hidden">
-                <div class="p-4 flex items-center justify-between cursor-pointer" onclick="openReader(${i})">
-                    <div class="flex items-center gap-4">
-                        <span class="bold-italic text-2xl text-purple-400 opacity-30">${i}</span>
+                <div class="p-3.5 flex items-center justify-between cursor-pointer" onclick="openReader(${i})">
+                    <div class="flex items-center gap-3">
+                        <span class="bold-italic text-xl text-purple-400 opacity-30">${i}</span>
                         <div>
-                            <h4 class="font-bold text-xs text-white uppercase">Chapter ${i}</h4>
-                            <p class="text-[8px] text-slate-500 font-black uppercase">Official</p>
+                            <h4 class="font-bold text-[11px] text-white uppercase">CHAPTER ${i}</h4>
                         </div>
                     </div>
-                    <div class="flex items-center gap-3" onclick="event.stopPropagation()">
-                        <button onclick="toggleLike(${i})" class="flex items-center gap-1.5 p-2 bg-white/5 rounded-lg text-[9px] font-bold">
-                            <span class="${hasLiked ? 'text-purple-500' : 'text-slate-700'}">♥</span> ${chLikes.length}
+                    <div class="flex items-center gap-2" onclick="event.stopPropagation()">
+                        <button onclick="toggleLike(${i})" class="flex items-center gap-1.5 p-2 bg-white/5 rounded-lg text-[8px] font-black">
+                            <span class="${hasLiked ? 'text-purple-500' : 'text-slate-600'}">♥</span> ${chLikes.length}
                         </button>
-                        <button onclick="toggleExpandChapter(${i})" class="flex items-center gap-1.5 p-2 bg-white/5 rounded-lg text-[9px] font-bold">
-                            <span class="text-slate-700">💬</span> ${chCommCount}
+                        <button onclick="toggleExpandChapter(${i})" class="flex items-center gap-1.5 p-2 bg-white/5 rounded-lg text-[8px] font-black">
+                            <span class="text-slate-600">💬</span> ${chCommCount}
                         </button>
                     </div>
                 </div>
                 <div class="expandable-content border-t border-white/5 bg-black/40">
                     <div class="p-4 space-y-4">
-                        <div id="chapter-comments-${i}" class="space-y-2 max-h-[200px] overflow-y-auto scroll-container"></div>
+                        <div id="chapter-comments-${i}" class="space-y-2 max-h-[180px] overflow-y-auto scroll-container"></div>
                         <div class="flex gap-2">
-                            <input id="comment-input-${i}" type="text" placeholder="Write something..." class="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-[10px] text-white outline-none">
-                            <button onclick="postComment(${i})" class="bg-purple-600 px-3 rounded-lg text-[9px] font-bold uppercase">Post</button>
+                            <input id="comment-input-${i}" type="text" placeholder="Add feedback..." class="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-[10px] text-white outline-none">
+                            <button onclick="postComment(${i})" class="bg-purple-600 px-3 rounded-lg text-[8px] font-black uppercase">Send</button>
                         </div>
                     </div>
                 </div>
@@ -271,18 +270,18 @@ window.toggleExpandChapter = function(id) {
 
 async function loadChapterComments(id) {
     const container = document.getElementById(`chapter-comments-${id}`);
-    container.innerHTML = '<div class="text-[8px] opacity-20 text-center py-2 uppercase">Loading comments...</div>';
+    container.innerHTML = '<div class="text-[7px] opacity-20 text-center py-2 uppercase">Tracing signals...</div>';
     const { data } = await supabase.from('chapter_comments').select('*, profiles(display_name, avatar_url)').eq('chapter_id', id).order('created_at', { ascending: false });
     if (!data || data.length === 0) {
-        container.innerHTML = '<div class="text-[8px] opacity-10 text-center py-2 uppercase">No comments</div>';
+        container.innerHTML = '<div class="text-[7px] opacity-10 text-center py-2 uppercase">No signals</div>';
         return;
     }
     container.innerHTML = data.map(c => `
-        <div class="flex gap-2 p-2 bg-white/5 rounded-lg border border-white/5">
+        <div class="flex gap-2 p-2 bg-white/5 rounded-lg">
             <img src="${c.profiles?.avatar_url}" class="w-4 h-4 rounded-full object-cover">
             <div class="flex-1 min-w-0">
-                <span class="text-[8px] font-black text-purple-400 uppercase truncate block">${c.profiles?.display_name}</span>
-                <p class="text-[10px] text-slate-400 leading-tight">${c.content}</p>
+                <span class="text-[7px] font-black text-purple-400 uppercase truncate block">${c.profiles?.display_name}</span>
+                <p class="text-[9px] text-slate-400 leading-tight font-medium">${c.content}</p>
             </div>
         </div>
     `).join('');
@@ -298,10 +297,10 @@ window.postComment = async function(id) {
     }
 }
 
-// Readers & Messaging
+// Readers & Messaging Redesigned (Hide chat initially)
 async function loadFriends() {
     const container = document.getElementById('readers-list');
-    container.innerHTML = '<div class="text-center p-10 opacity-20 uppercase text-[10px] tracking-widest">Loading readers...</div>';
+    container.innerHTML = '<div class="text-center p-10 opacity-20 uppercase text-[9px] tracking-widest">Scanning souls...</div>';
     const { data } = await supabase.from('profiles').select('*').order('xp', { ascending: false });
     if (!data) return;
     container.innerHTML = data.map(r => {
@@ -310,27 +309,27 @@ async function loadFriends() {
         const isAuthor = r.email === AUTHOR_EMAIL;
         return `
         <div id="user-card-${r.id}" class="glass-panel rounded-xl border border-white/5 overflow-hidden">
-            <div class="p-4 flex items-center justify-between">
+            <div class="p-3 flex items-center justify-between">
                 <div class="flex items-center gap-3 min-w-0">
                     <div class="relative flex-shrink-0">
-                        <img src="${r.avatar_url}" class="w-10 h-10 rounded-lg object-cover">
-                        <div class="absolute -bottom-1 -right-1 bg-purple-600 px-1 rounded text-[6px] font-black uppercase">${isAuthor ? 'MAX' : 'L'+r.level}</div>
+                        <img src="${r.avatar_url}" class="w-9 h-9 rounded-full object-cover">
+                        <div class="absolute -bottom-1 -right-1 bg-purple-600 px-1 rounded text-[5px] font-black uppercase tracking-tighter">${isAuthor ? 'MAX' : 'L'+r.level}</div>
                     </div>
                     <div class="min-w-0">
                         <h5 class="text-[10px] font-black text-white uppercase truncate flex items-center gap-1.5">
-                            ${r.display_name} ${isAuthor ? '<span class="text-[6px] bg-yellow-500/20 text-yellow-500 px-1 rounded">AUTHOR</span>' : ''}
+                            ${r.display_name} ${isAuthor ? '<span class="text-[5px] bg-yellow-500/10 text-yellow-500 px-1 rounded tracking-tighter">AUTHOR</span>' : ''}
                         </h5>
-                        <p class="text-[8px] text-slate-500 font-bold uppercase truncate">${isAuthor ? 'Official Team' : info.name}</p>
+                        <p class="text-[7px] text-slate-500 font-bold uppercase truncate tracking-tighter">${isAuthor ? 'Main Team' : info.name}</p>
                     </div>
                 </div>
-                ${!isSelf ? `<button onclick="toggleExpandChat('${r.id}', '${r.display_name}')" class="bg-purple-600 px-4 py-2 rounded-lg text-[9px] font-black uppercase flex-shrink-0">Message</button>` : ''}
+                ${!isSelf ? `<button onclick="toggleExpandChat('${r.id}', '${r.display_name}')" class="bg-purple-600/10 border border-purple-500/20 px-4 py-1.5 rounded-lg text-[9px] font-black uppercase text-purple-400">Message</button>` : ''}
             </div>
-            <div class="expandable-content border-t border-white/5 bg-black/50">
-                <div class="flex flex-col h-[350px]">
+            <div class="expandable-content border-t border-white/5 bg-black/60">
+                <div class="flex flex-col h-[300px]">
                     <div id="chat-bubbles-${r.id}" class="flex-1 overflow-y-auto space-y-3 p-4 scroll-container"></div>
-                    <div class="chat-input-container flex gap-2">
-                        <input id="chat-input-${r.id}" type="text" placeholder="Type..." class="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-[11px] text-white outline-none">
-                        <button onclick="sendMessageInline('${r.id}')" class="bg-purple-600 px-4 rounded-lg text-[9px] font-bold uppercase">Send</button>
+                    <div class="p-3 border-t border-white/5 flex gap-2">
+                        <input id="chat-input-${r.id}" type="text" placeholder="Type a message..." class="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-[10px] text-white outline-none">
+                        <button onclick="sendMessageInline('${r.id}')" class="bg-purple-600 px-3 rounded-lg text-[9px] font-black uppercase">Send</button>
                     </div>
                 </div>
             </div>
@@ -357,7 +356,7 @@ async function loadMessagesInline(userId) {
     if (!data) return;
     container.innerHTML = data.map(m => `
         <div class="flex ${m.sender_id === currentUser.id ? 'justify-end' : 'justify-start'}">
-            <div class="max-w-[85%] px-3 py-2 rounded-xl ${m.sender_id === currentUser.id ? 'bg-purple-600 text-white' : 'bg-white/10 text-slate-300'} text-[11px] leading-snug">
+            <div class="max-w-[85%] px-3 py-1.5 rounded-xl ${m.sender_id === currentUser.id ? 'bg-purple-600 text-white' : 'bg-white/10 text-slate-300'} text-[10px] font-medium leading-snug">
                 ${m.content}
             </div>
         </div>
@@ -385,14 +384,14 @@ window.submitRating = async function() {
     if (currentRating === 0) return alert("Select a star.");
     const { error } = await supabase.from('ratings').upsert({ user_id: currentUser.id, rating: currentRating });
     if (!error) {
-        alert("Thank you for your rating!");
+        alert("Echo received!");
         window.toggleModal('rating-modal'); window.addXP(1);
     }
 }
 
 window.shareStory = function() {
     const url = "https://lahirusehan.github.io/A-False-Hope/";
-    if (navigator.share) navigator.share({ title: 'A False Hope', text: 'Read now.', url }).catch(console.error);
+    if (navigator.share) navigator.share({ title: 'A False Hope', text: 'Official Story Reader', url }).catch(console.error);
     else { navigator.clipboard.writeText(url); alert("Link copied!"); }
 }
 
@@ -407,10 +406,10 @@ async function fetchProfile() {
         if (error || !data) {
             const newProf = {
                 id: user.id, email: user.email,
-                display_name: user.user_metadata.full_name || 'User',
+                display_name: user.user_metadata.full_name || 'Vessel',
                 avatar_url: user.user_metadata.avatar_url || `https://api.dicebear.com/7.x/pixel-art/svg?seed=${user.id}`,
                 xp: isAuthor ? 100 : 0, level: isAuthor ? 10 : 1,
-                bio: isAuthor ? 'Manga Author' : 'Manga Reader'
+                bio: isAuthor ? 'Story Author' : 'Story Reader'
             };
             await supabase.from('profiles').insert(newProf); profileData = newProf;
         } else {
@@ -446,7 +445,7 @@ window.updateProfile = async function() {
     const { error } = await supabase.from('profiles').update({ display_name: newName, bio: newBio }).eq('id', currentUser.id);
     if (!error) {
         profileData.display_name = newName; profileData.bio = newBio;
-        updateNavUI(); alert('Profile updated!');
+        updateNavUI(); alert('Echo updated!');
     }
 }
 
@@ -454,7 +453,7 @@ window.updateProfile = async function() {
 window.openReader = function(id) {
     window.showView('reader-view');
     const container = document.getElementById('reader-pages');
-    container.innerHTML = '<div class="text-center p-20 opacity-20 uppercase text-xs tracking-widest">Loading...</div>';
+    container.innerHTML = '<div class="text-center p-20 opacity-20 uppercase text-[9px] tracking-widest">Opening scroll...</div>';
     setTimeout(() => {
         container.innerHTML = '';
         for (let i = 1; i <= 5; i++) {
@@ -479,14 +478,14 @@ window.toggleLike = async function(id) {
 
 async function loadAdminUsers() {
     const container = document.getElementById('admin-user-list');
-    container.innerHTML = '<p class="text-center opacity-30 text-[10px] uppercase">Loading...</p>';
+    container.innerHTML = '<p class="text-center opacity-30 text-[8px] uppercase">Tracing records...</p>';
     const { data } = await supabase.from('profiles').select('*').order('xp', { ascending: false });
     if (!data) return;
     container.innerHTML = data.map(u => `
         <div class="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/5">
             <div class="min-w-0">
                 <span class="text-[10px] font-black text-white truncate block uppercase">${u.display_name}</span>
-                <span class="text-[8px] font-bold text-slate-500 uppercase tracking-widest">XP: ${u.xp} / L${u.level}</span>
+                <span class="text-[7px] font-bold text-slate-500 uppercase tracking-widest">XP: ${u.xp} / L${u.level}</span>
             </div>
             <div class="flex gap-1 flex-shrink-0">
                 <button onclick="window.addXP(10, '${u.id}')" class="px-2 py-1 bg-purple-900/40 text-purple-300 rounded text-[7px] font-black">+10</button>
@@ -523,9 +522,9 @@ window.openRecognition = function(name) {
     const textEl = document.getElementById('recognition-text');
     nameEl.innerText = name;
     if (name === 'MINASHA') { 
-        iconBox.innerHTML = '❤️'; textEl.innerText = "The Guardian. Thank you for your support."; 
+        iconBox.innerHTML = '❤️'; textEl.innerText = "The Supporter. Thank you for your energy."; 
     } else { 
-        iconBox.innerHTML = '🔥'; textEl.innerText = "The Flame. Your passion keeps us going."; 
+        iconBox.innerHTML = '🔥'; textEl.innerText = "The Flame. Your passion keeps the team going."; 
     }
     window.toggleModal('recognition-modal'); window.addXP(1);
 }
