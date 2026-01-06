@@ -14,23 +14,35 @@ let currentUser = null;
 let profileData = null;
 let navigationHistory = ['home-view'];
 let activeChatUserId = null;
+let currentRating = 0;
 
 const AUTHOR_EMAIL = 'lamusicstudio831@gmail.com';
 
 // Balanced XP system (Max 100 XP)
-const TOTAL_CHAPTERS = 30;
 const LEVEL_CONFIG = [
     { level: 1, xp: 0, color: '#a855f7', name: 'Drifter' },
-    { level: 2, xp: 10, color: '#8b5cf6', name: 'Inmate' },
-    { level: 3, xp: 20, color: '#7c3aed', name: 'Sinner' },
-    { level: 4, xp: 30, color: '#6d28d9', name: 'Follower' },
-    { level: 5, xp: 40, color: '#5b21b6', name: 'Believer' },
+    { level: 2, xp: 10, color: '#9333ea', name: 'Inmate' },
+    { level: 3, xp: 20, color: '#7e22ce', name: 'Sinner' },
+    { level: 4, xp: 30, color: '#6b21a8', name: 'Follower' },
+    { level: 5, xp: 40, color: '#581c87', name: 'Believer' },
     { level: 6, xp: 55, color: '#4c1d95', name: 'Apostle' },
     { level: 7, xp: 70, color: '#f59e0b', name: 'Prophet' },
     { level: 8, xp: 85, color: '#f97316', name: 'Wraith' },
     { level: 9, xp: 95, color: '#ef4444', name: 'Arch-Demon' },
-    { level: 10, xp: 100, color: '#ffffff', name: 'THE VOID' },
+    { level: 10, xp: 100, color: '#d946ef', name: 'MAX' },
 ];
+
+// Setup Realtime Subscription for Messages
+if (supabase) {
+    supabase.channel('messages_realtime')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
+            const msg = payload.new;
+            if (activeChatUserId && (msg.sender_id === activeChatUserId || msg.receiver_id === activeChatUserId)) {
+                loadMessagesInline(activeChatUserId);
+            }
+        })
+        .subscribe();
+}
 
 // Navigation
 window.showView = function(viewId, pushHistory = true) {
@@ -60,9 +72,6 @@ window.showView = function(viewId, pushHistory = true) {
     if (viewId === 'chapters-view') loadChapters();
     if (viewId === 'readers-view') loadFriends();
     if (viewId === 'profile-view') fillProfileData();
-    if (viewId === 'notifications-view') {
-        document.getElementById('bell-badge').classList.add('hidden');
-    }
 }
 
 window.goBack = function() {
@@ -84,6 +93,10 @@ window.toggleModal = function(modalId) {
 // XP & Leveling
 window.addXP = async function(amount, userId = null) {
     const targetId = userId || currentUser.id;
+    
+    // Authorization: Only author can modify others
+    if (userId && currentUser.email !== AUTHOR_EMAIL) return;
+
     const { data: profile } = await supabase.from('profiles').select('*').eq('id', targetId).single();
     if (!profile) return;
 
@@ -98,14 +111,15 @@ window.addXP = async function(amount, userId = null) {
         .update({ xp: newXP, level: info.level })
         .eq('id', targetId);
 
-    if (!error && targetId === currentUser.id) {
-        profileData.xp = newXP;
-        profileData.level = info.level;
-        updateXPUI();
-        renderXPGuide();
+    if (!error) {
+        if (targetId === currentUser.id) {
+            profileData.xp = newXP;
+            profileData.level = info.level;
+            updateXPUI();
+            renderXPGuide();
+        }
+        if (userId) loadAdminUsers();
     }
-    
-    if (userId && currentUser.email === AUTHOR_EMAIL) loadAdminUsers();
 }
 
 function getLevelInfo(xp) {
@@ -116,7 +130,8 @@ function getLevelInfo(xp) {
     }
     const next = LEVEL_CONFIG.find(c => c.level === current.level + 1) || { level: 10, xp: 100 };
     const progress = current.level === 10 ? 100 : ((xp - current.xp) / (next.xp - current.xp)) * 100;
-    return { ...current, progress, nextXp: next.xp };
+    const label = current.level === 10 ? "MAX" : `LVL ${current.level}`;
+    return { ...current, progress, nextXp: next.xp, label };
 }
 
 function updateXPUI() {
@@ -126,9 +141,9 @@ function updateXPUI() {
         bar.style.width = `${info.progress}%`;
         bar.style.backgroundColor = info.color;
     });
-    document.querySelectorAll('.level-label').forEach(el => el.innerText = `LVL ${info.level}`);
+    document.querySelectorAll('.level-label').forEach(el => el.innerText = info.label);
     document.querySelectorAll('.rank-label').forEach(el => el.innerText = info.name.toUpperCase());
-    document.getElementById('nav-user-lvl').innerText = `LVL ${info.level}`;
+    document.getElementById('nav-user-lvl').innerText = info.label;
     document.documentElement.style.setProperty('--aura-color', info.color);
     
     const xpText = document.getElementById('profile-xp-text');
@@ -140,10 +155,11 @@ function renderXPGuide() {
     if (!container) return;
     container.innerHTML = LEVEL_CONFIG.map(l => {
         const isCurrent = profileData?.level === l.level;
+        const label = l.level === 10 ? "MAX" : l.name;
         return `
         <div class="xp-node ${isCurrent ? 'opacity-100' : 'opacity-30'} transition-all duration-300">
-            <div class="w-3 h-3 rounded-full mx-auto mb-1 border-2 ${isCurrent ? 'aura-bg' : 'border-white/20'}" style="${!isCurrent ? 'background: rgba(255,255,255,0.05)' : ''}"></div>
-            <p class="text-[6px] font-black text-white uppercase tracking-tighter">${l.name}</p>
+            <div class="w-3 h-3 rounded-full mx-auto mb-1 border-2 ${isCurrent ? 'aura-bg' : 'border-white/20'}" style="background: ${isCurrent ? l.color : 'rgba(255,255,255,0.05)'}"></div>
+            <p class="text-[6px] font-black text-white uppercase tracking-tighter">${label}</p>
         </div>
     `}).join('');
 }
@@ -151,13 +167,13 @@ function renderXPGuide() {
 // INLINE EXPANSION LOGIC
 async function loadChapters() {
     const container = document.getElementById('chapters-list-mobile');
-    container.innerHTML = '<div class="text-center p-10 opacity-30 animate-pulse font-impact tracking-widest uppercase">Fetching...</div>';
+    container.innerHTML = '<div class="text-center p-10 opacity-30 animate-pulse font-impact tracking-widest uppercase">Fetching Records...</div>';
     
     const { data: likes } = await supabase.from('chapter_likes').select('chapter_id, user_id');
     const { data: comments } = await supabase.from('chapter_comments').select('chapter_id');
 
     let html = '';
-    for (let i = 1; i <= TOTAL_CHAPTERS; i++) {
+    for (let i = 1; i <= 30; i++) {
         const chapterLikes = likes?.filter(l => l.chapter_id === i) || [];
         const commCount = comments?.filter(c => c.chapter_id === i).length || 0;
         const hasLiked = chapterLikes.some(l => l.user_id === currentUser.id);
@@ -169,7 +185,7 @@ async function loadChapters() {
                         <span class="font-impact text-2xl aura-text opacity-50">${i}</span>
                         <div class="leading-tight">
                             <h4 class="font-bold text-xs text-white uppercase">CHAPTER ${i}</h4>
-                            <p class="text-[8px] text-slate-500 font-bold uppercase tracking-widest">Digital Scroll</p>
+                            <p class="text-[8px] text-slate-500 font-bold uppercase tracking-widest">DIGITAL SCROLL</p>
                         </div>
                     </div>
                     <div class="flex items-center gap-4">
@@ -187,7 +203,7 @@ async function loadChapters() {
                     <div class="p-4 space-y-4">
                         <div id="chapter-comments-${i}" class="comment-area space-y-2"></div>
                         <div class="flex gap-2">
-                            <input id="comment-input-${i}" type="text" placeholder="Add feedback..." class="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-xs text-white outline-none">
+                            <input id="comment-input-${i}" type="text" placeholder="Add feedback..." class="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-xs text-white outline-none focus:border-purple-500">
                             <button onclick="postComment(${i})" class="aura-bg px-4 rounded-xl text-[9px] font-black uppercase">Post</button>
                         </div>
                     </div>
@@ -217,7 +233,7 @@ async function loadChapterComments(id) {
     }
     container.innerHTML = data.map(c => `
         <div class="flex gap-2 p-2 bg-white/5 rounded-lg border border-white/5">
-            <img src="${c.profiles?.avatar_url}" class="w-4 h-4 rounded-full border border-white/10">
+            <img src="${c.profiles?.avatar_url}" class="w-4 h-4 rounded-full border border-white/10 object-cover">
             <div class="flex-1">
                 <span class="text-[8px] font-black text-white uppercase">${c.profiles?.display_name}</span>
                 <p class="text-[10px] text-slate-400 leading-normal">${c.content}</p>
@@ -233,27 +249,28 @@ window.postComment = async function(id) {
     const { error } = await supabase.from('chapter_comments').insert({ chapter_id: id, user_id: currentUser.id, content });
     if (!error) {
         input.value = '';
-        window.addXP(1); // 1 XP per comment
+        window.addXP(1); 
         loadChapterComments(id);
     }
 }
 
 async function loadFriends() {
     const container = document.getElementById('readers-list');
-    container.innerHTML = '<div class="text-center p-10 opacity-30 animate-pulse font-impact tracking-widest uppercase">Searching Souls...</div>';
+    container.innerHTML = '<div class="text-center p-10 opacity-30 animate-pulse font-impact tracking-widest uppercase">Searching Users...</div>';
     const { data } = await supabase.from('profiles').select('*').order('xp', { ascending: false });
     if (!data) return;
     container.innerHTML = data.map(r => {
         const isSelf = r.id === currentUser.id;
         const info = getLevelInfo(r.xp);
         const isAuthor = r.email === AUTHOR_EMAIL;
+        const displayLevel = isAuthor ? "MAX" : r.level;
         return `
         <div id="user-card-${r.id}" class="glass-panel rounded-2xl border border-white/5 overflow-hidden">
             <div class="p-4 flex items-center justify-between">
                 <div class="flex items-center gap-3">
                     <div class="relative">
                         <img src="${r.avatar_url}" class="w-10 h-10 rounded-xl border border-white/10 object-cover">
-                        <div class="absolute -bottom-1 -right-1 aura-bg px-1 rounded text-[6px] font-black uppercase">L${isAuthor ? '10' : r.level}</div>
+                        <div class="absolute -bottom-1 -right-1 aura-bg px-1 rounded text-[6px] font-black uppercase">${isAuthor ? 'MAX' : 'L'+r.level}</div>
                     </div>
                     <div>
                         <h5 class="text-[10px] font-black text-white uppercase tracking-widest flex items-center gap-1.5">
@@ -284,7 +301,10 @@ window.toggleExpandChat = function(userId, name) {
     document.querySelectorAll('[id^="user-card-"]').forEach(c => c.classList.remove('expanded'));
     if (!isExpanded) {
         card.classList.add('expanded');
+        activeChatUserId = userId;
         loadMessagesInline(userId);
+    } else {
+        activeChatUserId = null;
     }
 }
 
@@ -309,8 +329,40 @@ window.sendMessageInline = async function(userId) {
     const { error } = await supabase.from('messages').insert({ sender_id: currentUser.id, receiver_id: userId, content });
     if (!error) {
         input.value = '';
-        window.addXP(1); // 1 XP per message
+        window.addXP(1);
         loadMessagesInline(userId);
+    }
+}
+
+// Rating System
+window.setRating = function(rating) {
+    currentRating = rating;
+    const stars = document.querySelectorAll('.star');
+    stars.forEach((star, i) => {
+        star.classList.toggle('active', i < rating);
+    });
+}
+
+window.submitRating = async function() {
+    if (currentRating === 0) return alert("Please select a rating.");
+    const { error } = await supabase.from('ratings').upsert({ user_id: currentUser.id, rating: currentRating });
+    if (!error) {
+        alert("Echo received. The void acknowledges your rating.");
+        window.toggleModal('rating-modal');
+        window.addXP(1);
+    }
+}
+
+window.shareStory = function() {
+    if (navigator.share) {
+        navigator.share({
+            title: 'A False Hope',
+            text: 'Experience the digital manifestation of the void.',
+            url: window.location.href
+        }).catch(console.error);
+    } else {
+        navigator.clipboard.writeText(window.location.href);
+        alert("Sanctum link copied to clipboard.");
     }
 }
 
@@ -324,7 +376,7 @@ async function loadAdminUsers() {
         <div class="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/5">
             <div class="flex flex-col">
                 <span class="text-[10px] font-black uppercase text-white truncate max-w-[80px]">${u.display_name}</span>
-                <span class="text-[7px] font-bold text-slate-500">XP: ${u.xp} / LVL: ${u.level}</span>
+                <span class="text-[7px] font-bold text-slate-500">XP: ${u.xp} / ${u.email === AUTHOR_EMAIL ? 'MAX' : 'LVL '+u.level}</span>
             </div>
             <div class="flex gap-2">
                 <button onclick="window.addXP(10, '${u.id}')" class="px-2 py-1 bg-purple-500/20 text-purple-400 rounded text-[8px] font-black">+10 XP</button>
@@ -353,7 +405,6 @@ async function fetchProfile() {
             profileData = newProfile;
         } else {
             profileData = data;
-            // Ensure Author is always max
             if (isAuthor && profileData.xp < 100) {
                 profileData.xp = 100;
                 profileData.level = 10;
@@ -365,7 +416,7 @@ async function fetchProfile() {
             document.getElementById('admin-btn').classList.remove('hidden');
             document.getElementById('author-tag').classList.remove('hidden');
         }
-    } catch (e) { console.error("Auth init failure", e); }
+    } catch (e) { console.error("Auth sync error", e); }
     updateNavUI();
     updateXPUI();
 }
@@ -388,7 +439,7 @@ window.openReader = function(id) {
             img.className = "w-full mb-1 shadow-2xl";
             container.appendChild(img);
         }
-        window.addXP(2); // 2 XP per chapter read (60 XP total for 30 chapters)
+        window.addXP(2); 
     }, 400);
 }
 
@@ -398,7 +449,7 @@ window.toggleLike = async function(id) {
         await supabase.from('chapter_likes').delete().eq('chapter_id', id).eq('user_id', currentUser.id);
     } else {
         await supabase.from('chapter_likes').insert({ chapter_id: id, user_id: currentUser.id });
-        window.addXP(1); // 1 XP per like
+        window.addXP(1);
     }
     loadChapters();
 }
@@ -419,7 +470,7 @@ window.updateProfile = async function() {
     const { error } = await supabase.from('profiles').update({ display_name: newName, bio: newBio }).eq('id', currentUser.id);
     if (!error) {
         profileData.display_name = newName; profileData.bio = newBio;
-        updateNavUI(); fillProfileData(); alert('Profile Saved.'); window.addXP(1);
+        updateNavUI(); fillProfileData(); alert('Echo Updated.'); window.addXP(1);
     }
 }
 
@@ -433,7 +484,6 @@ async function checkAuth() {
 
 document.addEventListener('DOMContentLoaded', () => {
     checkAuth();
-    // Default purple aura even if not logged in
     document.documentElement.style.setProperty('--aura-color', '#a855f7');
     document.getElementById('google-login-btn')?.addEventListener('click', () => {
         supabase.auth.signInWithOAuth({ provider: 'google' });

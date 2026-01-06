@@ -22,15 +22,15 @@
         .glass-panel { background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(25px); border-bottom: 1px solid rgba(255,255,255,0.08); }
 
         .horror-title {
-            font-size: 3.5rem; line-height: 0.85; letter-spacing: -1px;
+            font-size: 3rem; line-height: 0.85; letter-spacing: -1px;
             background: linear-gradient(to bottom, #f8fafc 40%, var(--aura-color) 100%);
             -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-            filter: drop-shadow(0 0 10px rgba(0,0,0,0.8));
+            filter: drop-shadow(0 0 10px rgba(0,0,0,0.9));
         }
 
         .hero-fade {
             position: absolute; bottom: 0; left: 0; right: 0;
-            height: 60%; background: linear-gradient(to top, var(--void-black) 40%, transparent 100%);
+            height: 50%; background: linear-gradient(to top, var(--void-black) 20%, transparent 100%);
         }
 
         .xp-timeline {
@@ -49,19 +49,24 @@
         .expandable-content {
             max-height: 0; overflow: hidden; transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        .expanded .expandable-content { max-height: 500px; }
+        .expanded .expandable-content { max-height: 600px; }
 
-        .chat-area { height: 300px; display: flex; flex-direction: column; }
+        .chat-area { height: 350px; display: flex; flex-direction: column; }
         .comment-area { max-height: 300px; overflow-y: auto; }
 
         .btn-recognition {
             background: rgba(168, 85, 247, 0.1);
             border: 1px solid rgba(168, 85, 247, 0.2);
-            font-size: 8px; font-weight: 900; letter-spacing: 0.1em;
-            padding: 8px 12px; border-radius: 12px;
+            font-size: 9px; font-weight: 900; letter-spacing: 0.05em;
+            padding: 10px; border-radius: 12px;
             transition: 0.3s;
         }
-        .btn-recognition:active { transform: scale(0.95); background: rgba(168, 85, 247, 0.2); }
+        
+        .star-rating {
+            display: flex; gap: 4px;
+        }
+        .star { cursor: pointer; font-size: 24px; transition: 0.2s; color: #334155; }
+        .star.active { color: #f59e0b; text-shadow: 0 0 10px rgba(245, 158, 11, 0.4); }
 
         ::-webkit-scrollbar { width: 4px; height: 4px; }
         ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
@@ -80,7 +85,7 @@
                     <img id="nav-user-avatar" src="" class="w-9 h-9 rounded-full border border-white/20 object-cover">
                     <div class="flex flex-col">
                         <p id="nav-user-name" class="text-[10px] font-black tracking-widest text-white uppercase truncate max-w-[100px]">USER</p>
-                        <span id="nav-user-lvl" class="text-[8px] font-bold aura-text tracking-widest">LVL 1</span>
+                        <span id="nav-user-lvl" class="text-[8px] font-bold aura-text tracking-widest uppercase">LVL 1</span>
                     </div>
                 </div>
             </div>
@@ -125,33 +130,65 @@
             <div class="hero-fade"></div>
         </div>
 
-        <div class="relative px-6 -mt-16 pb-24 space-y-8">
-            <div class="space-y-3">
+        <div class="relative px-6 -mt-8 pb-32 space-y-10">
+            <div class="space-y-4">
                 <div class="flex items-center gap-2">
-                    <span class="text-[8px] font-bold bg-white/10 px-2 py-0.5 rounded text-slate-300 uppercase tracking-widest">OFFICIAL CHRONICLE</span>
+                    <span class="text-[8px] font-bold bg-white/10 px-2 py-0.5 rounded text-slate-300 uppercase tracking-widest">SERIES</span>
                     <span id="author-tag" class="text-[8px] font-black bg-yellow-500/20 text-yellow-500 px-2 py-0.5 rounded uppercase hidden">AUTHOR</span>
                 </div>
-                <h2 class="horror-title italic font-black">A FALSE<br>HOPE</h2>
-                <p class="text-[12px] text-slate-400 font-medium leading-relaxed max-w-[300px]">The digital manifestation of the void. Follow the light or perish in the shadows.</p>
+                
+                <div class="flex items-start justify-between gap-4">
+                    <h2 class="horror-title italic font-black">A FALSE<br>HOPE</h2>
+                    <div class="flex flex-col gap-2 pt-2">
+                        <button onclick="shareStory()" class="p-3 bg-white/5 rounded-2xl border border-white/10 text-slate-400">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path></svg>
+                        </button>
+                        <button onclick="toggleModal('rating-modal')" class="p-3 bg-white/5 rounded-2xl border border-white/10 text-slate-400">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"></path></svg>
+                        </button>
+                    </div>
+                </div>
+                
+                <p class="text-[12px] text-slate-400 font-medium leading-relaxed max-w-[320px]">Journey through the digital manifestation of the void. Follow the light or perish in the shadows.</p>
             </div>
 
-            <div class="space-y-4">
+            <div class="space-y-8">
                 <button onclick="showView('chapters-view')" class="aura-bg w-full h-14 flex items-center justify-center gap-3 rounded-2xl font-impact text-2xl text-white tracking-widest italic shadow-xl shadow-purple-900/40">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
                     READ STORY
                 </button>
                 
-                <div class="flex gap-3">
-                    <button onclick="openRecognition('MINASHA')" class="btn-recognition flex-1 flex items-center justify-center gap-2 text-white">
-                        <span>❤️</span> SPECIAL RECOGNITION: MINASHA
-                    </button>
-                    <button onclick="openRecognition('AROSHA')" class="btn-recognition flex-1 flex items-center justify-center gap-2 text-white">
-                        <span>🔥</span> SPECIAL RECOGNITION: AROSHA
-                    </button>
+                <div class="space-y-4">
+                    <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest text-center">Recognition of Souls</p>
+                    <div class="flex gap-3">
+                        <button onclick="openRecognition('MINASHA')" class="btn-recognition flex-1 flex items-center justify-center gap-2 text-white">
+                            <span>❤️</span> MINASHA
+                        </button>
+                        <button onclick="openRecognition('AROSHA')" class="btn-recognition flex-1 flex items-center justify-center gap-2 text-white">
+                            <span>🔥</span> AROSHA
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
     </section>
+
+    <!-- RATING MODAL -->
+    <div id="rating-modal" class="fixed inset-0 z-[200] hidden bg-black/95 backdrop-blur-xl flex items-center justify-center p-6">
+        <div class="w-full max-w-sm glass-panel p-8 rounded-3xl text-center space-y-6">
+            <h3 class="font-impact text-3xl text-white italic tracking-widest">RATE THE STORY</h3>
+            <p class="text-xs text-slate-400">Share your echo with the void.</p>
+            <div id="star-container" class="star-rating justify-center py-4">
+                <span onclick="setRating(1)" class="star">★</span>
+                <span onclick="setRating(2)" class="star">★</span>
+                <span onclick="setRating(3)" class="star">★</span>
+                <span onclick="setRating(4)" class="star">★</span>
+                <span onclick="setRating(5)" class="star">★</span>
+            </div>
+            <button onclick="submitRating()" class="w-full py-4 aura-bg rounded-2xl font-black text-[10px] uppercase tracking-widest">SEND RATING</button>
+            <button onclick="toggleModal('rating-modal')" class="text-slate-500 text-[9px] uppercase font-bold tracking-widest">CANCEL</button>
+        </div>
+    </div>
 
     <!-- CHAPTERS -->
     <section id="chapters-view" class="view hidden bg-black pt-16 flex flex-col">
@@ -212,15 +249,15 @@
 
         <div class="mt-10 space-y-4 max-w-sm mx-auto w-full pb-24">
             <div class="space-y-1">
-                <label class="text-[9px] font-bold text-slate-500 uppercase tracking-widest ml-1">Identity</label>
+                <label class="text-[9px] font-bold text-slate-500 uppercase tracking-widest ml-1 text-slate-600">Identity</label>
                 <input id="profile-edit-name" type="text" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none">
             </div>
             <div class="space-y-1">
-                <label class="text-[9px] font-bold text-slate-500 uppercase tracking-widest ml-1">Soul Story</label>
+                <label class="text-[9px] font-bold text-slate-500 uppercase tracking-widest ml-1 text-slate-600">Soul Story</label>
                 <textarea id="profile-edit-bio" rows="2" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none resize-none"></textarea>
             </div>
             <button onclick="updateProfile()" class="w-full aura-bg py-4 rounded-xl font-bold text-[11px] tracking-widest uppercase text-white shadow-xl">UPDATE</button>
-            <button onclick="supabase.auth.signOut().then(() => location.reload())" class="w-full py-3 text-red-500/40 font-bold text-[9px] tracking-widest uppercase">SIGN OUT</button>
+            <button onclick="supabase.auth.signOut().then(() => location.reload())" class="w-full py-3 text-red-500/60 font-bold text-[9px] tracking-widest uppercase">SIGN OUT</button>
         </div>
     </section>
 
@@ -244,11 +281,11 @@
 
             <div class="grid grid-cols-2 gap-3">
                 <div class="bg-white/5 p-3 rounded-xl border border-white/5 text-center">
-                    <p class="text-[8px] text-slate-500 font-bold uppercase mb-1">Reading</p>
+                    <p class="text-[8px] text-slate-600 font-bold uppercase mb-1">Reading</p>
                     <p class="text-xs text-white font-black">+2 XP</p>
                 </div>
                 <div class="bg-white/5 p-3 rounded-xl border border-white/5 text-center">
-                    <p class="text-[8px] text-slate-500 font-bold uppercase mb-1">Feedback</p>
+                    <p class="text-[8px] text-slate-600 font-bold uppercase mb-1">Feedback</p>
                     <p class="text-xs text-white font-black">+1 XP</p>
                 </div>
             </div>
