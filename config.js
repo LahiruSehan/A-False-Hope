@@ -3,6 +3,7 @@ export const APP_CONFIG = {
     tagline: "The Eldritch Chronicles",
     author: "Lahiru Sehan",
     authorEmail: "lamusicstudio831@gmail.com",
+    firstReaderEmail: "hackeraro2005@gmail.com", // Added First Reader
     // This dynamically gets the current URL. 
     // If you are on hope2877.online, it uses that. 
     // If you are on github.io, it uses that.
@@ -12,12 +13,6 @@ export const APP_CONFIG = {
         defaultAvatar: "https://i.ibb.co/vzG7P6z/default.png"
     }
 };
-/**
- * Chapter Configuration
- * id: The chapter number (corresponds to folder imageschapter[id])
- * title: The custom name for the chapter
- * pages: The total number of images (1.png, 2.png, ...) in that folder
- */
 /**
  * Chapter Configuration
  * id: The chapter number (corresponds to folder imageschapter[id])

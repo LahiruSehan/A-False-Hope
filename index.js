@@ -136,18 +136,33 @@ async function loadHomeContent() {
         
         c.innerHTML = (data || []).map((u, i) => {
             const isAuth = u.email === APP_CONFIG.authorEmail;
-            const name = isAuth ? APP_CONFIG.author.toUpperCase() : u.display_name;
+            const isFirst = u.email === APP_CONFIG.firstReaderEmail;
+            
+            let name = u.display_name;
+            if (isAuth) name = APP_CONFIG.author.toUpperCase();
+            
             const r = u.rating ? `<span class="user-rating-pill">${u.rating} ★</span>` : '';
+            
+            let glowClass = '';
+            if (isAuth) glowClass = 'creator-glow';
+            else if (isFirst) glowClass = 'first-reader-glow';
+            
+            let tagHTML = 'READER';
+            if (isAuth) tagHTML = '<span class="author-tag">AUTHOR</span>';
+            else if (isFirst) tagHTML = '<span class="first-reader-tag">FIRST READER</span>';
+
+            const nameColor = isFirst ? 'text-cyan-400' : 'text-white';
+
             return `
             <div class="flex items-center gap-3 p-3 bg-white/5 rounded-xl mb-2 cursor-pointer" onclick="showUserProfile('${u.id}')">
                 <span class="text-[10px] font-black opacity-20 w-4">${i+1}</span>
-                <img src="${u.avatar_url}" class="w-8 h-8 rounded-full object-cover border border-white/5 ${isAuth ? 'creator-glow' : ''}">
+                <img src="${u.avatar_url}" class="w-8 h-8 rounded-full object-cover border border-white/5 ${glowClass}">
                 <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-1">
-                        <p class="text-[10px] font-black text-white truncate">${name}</p>
+                        <p class="text-[10px] font-black ${nameColor} truncate">${name}</p>
                         ${r}
                     </div>
-                    <p class="text-[7px] text-purple-400 font-bold uppercase">${isAuth ? '<span class="author-tag">AUTHOR</span>' : 'READER'}</p>
+                    <p class="text-[7px] text-purple-400 font-bold uppercase">${tagHTML}</p>
                 </div>
             </div>`;
         }).join('');
@@ -230,11 +245,23 @@ async function loadChapterComments(id) {
         list.innerHTML = (data || []).map(c => {
             const p = c.profiles || {};
             const isAuth = p.email === APP_CONFIG.authorEmail;
+            const isFirst = p.email === APP_CONFIG.firstReaderEmail;
+            
+            let name = p.display_name;
+            if (isAuth) name = APP_CONFIG.author.toUpperCase();
+            
             const r = p.rating ? `<span class="user-rating-pill ml-1">${p.rating} ★</span>` : '';
+            
+            let glowClass = '';
+            if (isAuth) glowClass = 'creator-glow';
+            else if (isFirst) glowClass = 'first-reader-glow';
+
+            const nameColor = isAuth ? 'text-purple-400' : (isFirst ? 'text-cyan-400' : 'text-slate-200');
+
             return `<div class="flex gap-3 items-start p-3 bg-white/5 rounded-xl border border-white/5 animate-in slide-in-from-bottom-2">
-                <img src="${p.avatar_url}" class="w-8 h-8 rounded-full object-cover ${isAuth ? 'creator-glow' : ''}">
+                <img src="${p.avatar_url}" class="w-8 h-8 rounded-full object-cover ${glowClass}">
                 <div class="flex-1 min-w-0">
-                    <div class="flex items-center gap-1"><p class="text-[9px] font-black text-purple-400 uppercase truncate">${isAuth ? APP_CONFIG.author.toUpperCase() : p.display_name}</p>${r}</div>
+                    <div class="flex items-center gap-1"><p class="text-[9px] font-black ${nameColor} uppercase truncate">${name}</p>${r}</div>
                     <p class="text-[11px] text-slate-200 leading-snug mt-0.5">${c.content}</p>
                 </div>
             </div>`;
@@ -298,16 +325,28 @@ window.showUserProfile = async (userId) => {
     try {
         const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
         if(!data) return;
+        
         const isAuth = data.email === APP_CONFIG.authorEmail;
-        const name = isAuth ? APP_CONFIG.author.toUpperCase() : data.display_name;
+        const isFirst = data.email === APP_CONFIG.firstReaderEmail;
+        
+        let name = data.display_name;
+        if (isAuth) name = APP_CONFIG.author.toUpperCase();
+        
         const r = data.rating ? `<span class="user-rating-pill py-1 px-3 mt-2 inline-block">${data.rating} ★ Rated</span>` : '';
         const content = document.getElementById('user-detail-content');
         if(!content) return;
+        
+        let glowClass = isAuth ? 'creator-glow' : (isFirst ? 'first-reader-glow' : 'border border-purple-500/30');
+        
+        let roleTag = '<span class="text-[8px] text-purple-400 font-bold uppercase">READER</span>';
+        if (isAuth) roleTag = '<span class="author-tag">AUTHOR & CREATOR</span>';
+        else if (isFirst) roleTag = '<span class="first-reader-tag">FIRST READER</span>';
+
         content.innerHTML = `
-            <div class="relative inline-block"><img src="${data.avatar_url}" class="w-24 h-24 rounded-full mx-auto object-cover ${isAuth ? 'creator-glow' : 'border border-purple-500/30'}"></div>
+            <div class="relative inline-block"><img src="${data.avatar_url}" class="w-24 h-24 rounded-full mx-auto object-cover ${glowClass}"></div>
             <div class="flex flex-col items-center gap-1">
                 <h4 class="text-sm font-black text-white uppercase tracking-widest">${name}</h4>
-                ${isAuth ? '<span class="author-tag">AUTHOR & CREATOR</span>' : '<span class="text-[8px] text-purple-400 font-bold uppercase">READER</span>'}
+                ${roleTag}
                 ${r}
             </div>
             <p class="text-[11px] text-slate-400 italic px-4 mt-2">${data.bio || "Searching for hope..."}</p>`;
@@ -323,17 +362,29 @@ async function loadReaders() {
         const { data } = await supabase.from('profiles').select('*');
         c.innerHTML = (data || []).map(r => {
             const isAuth = r.email === APP_CONFIG.authorEmail;
-            const name = isAuth ? APP_CONFIG.author.toUpperCase() : r.display_name;
+            const isFirst = r.email === APP_CONFIG.firstReaderEmail;
+            
+            let name = r.display_name;
+            if (isAuth) name = APP_CONFIG.author.toUpperCase();
+            
             const rating = r.rating ? `<span class="user-rating-pill">${r.rating} ★</span>` : '';
             const isSelf = r.id === currentUser.id;
+            
+            let glowClass = isAuth ? 'creator-glow' : (isFirst ? 'first-reader-glow' : '');
+            let roleText = 'READER';
+            if (isAuth) roleText = 'AUTHOR';
+            else if (isFirst) roleText = 'FIRST READER';
+            
+            const roleColor = isFirst ? 'text-cyan-400' : 'text-purple-400';
+
             return `
             <div id="user-card-${r.id}" class="glass-panel p-4 rounded-xl flex flex-col mb-3">
                 <div class="flex items-center justify-between">
                     <div class="flex items-center gap-3 cursor-pointer" onclick="showUserProfile('${r.id}')">
-                        <img src="${r.avatar_url}" class="w-10 h-10 rounded-full object-cover border border-white/10 ${isAuth ? 'creator-glow' : ''}">
+                        <img src="${r.avatar_url}" class="w-10 h-10 rounded-full object-cover border border-white/10 ${glowClass}">
                         <div>
                             <div class="flex items-center gap-1"><p class="text-[11px] font-black text-white uppercase truncate">${name}</p>${rating}</div>
-                            <p class="text-[8px] text-purple-400 font-bold uppercase">${isAuth ? 'AUTHOR' : 'READER'}</p>
+                            <p class="text-[8px] ${roleColor} font-bold uppercase">${roleText}</p>
                         </div>
                     </div>
                     ${!isSelf ? `<button onclick="toggleChat('${r.id}')" class="bg-blue-600 px-4 py-2 rounded-lg text-[9px] font-black uppercase text-white active:scale-95">Message</button>` : ''}
@@ -416,12 +467,24 @@ window.submitRating = async () => {
 function updateUI() {
     if (!profileData) return;
     const isAuth = profileData.email === APP_CONFIG.authorEmail;
-    const name = isAuth ? APP_CONFIG.author.toUpperCase() : profileData.display_name;
+    const isFirst = profileData.email === APP_CONFIG.firstReaderEmail;
+    
+    let name = profileData.display_name;
+    if (isAuth) name = APP_CONFIG.author.toUpperCase();
     
     const nameEl = document.getElementById('nav-user-name');
     const roleEl = document.getElementById('nav-user-role');
     if (nameEl) nameEl.innerText = name.toUpperCase();
-    if (roleEl) roleEl.innerText = isAuth ? 'AUTHOR & CREATOR' : 'READER';
+    
+    let roleText = 'READER';
+    if (isAuth) roleText = 'AUTHOR & CREATOR';
+    else if (isFirst) roleText = 'FIRST READER';
+    
+    if (roleEl) roleEl.innerText = roleText;
+    if (roleEl && isFirst) {
+        roleEl.classList.remove('text-purple-400');
+        roleEl.classList.add('text-cyan-400');
+    }
     
     const navPill = document.getElementById('nav-rating-pill');
     const setPill = document.getElementById('settings-rating-pill');
@@ -433,6 +496,7 @@ function updateUI() {
     document.querySelectorAll('#nav-user-avatar, #settings-avatar').forEach(img => {
         img.src = profileData.avatar_url;
         if(isAuth) img.classList.add('creator-glow');
+        else if(isFirst) img.classList.add('first-reader-glow');
     });
 }
 
