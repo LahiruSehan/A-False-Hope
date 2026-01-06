@@ -170,9 +170,8 @@ async function loadChapters() {
         const { data: comms } = await supabase.from('chapter_comments').select('chapter_id');
         let chapters = [];
         
-        // Load all 30 chapters
         for(let i=1; i<=30; i++) {
-            const config = CHAPTER_CONFIG[i] || { title: "CHAPTER PORTAL", pages: DEFAULT_CHAPTER_PAGES };
+            const config = CHAPTER_CONFIG[i] || { title: `CHAPTER ${i}`, pages: DEFAULT_CHAPTER_PAGES };
             chapters.push({ 
                 id: i, 
                 title: config.title,
@@ -208,7 +207,7 @@ async function loadChapters() {
                 </div>
             </div>`).join('');
     } catch(e){
-        container.innerHTML = `<div class="p-10 text-center opacity-30 text-xs">Run the SQL in your dashboard to fix 404 errors.</div>`;
+        container.innerHTML = `<div class="p-10 text-center opacity-30 text-xs">Error loading chapters.</div>`;
     }
 }
 
@@ -239,7 +238,7 @@ async function loadChapterComments(id) {
                     <p class="text-[11px] text-slate-200 leading-snug mt-0.5">${c.content}</p>
                 </div>
             </div>`;
-        }).join('') || '<div class="text-center py-4 opacity-10 text-[8px] uppercase tracking-widest">The archives are empty. Be the first to speak.</div>';
+        }).join('') || '<div class="text-center py-4 opacity-10 text-[8px] uppercase tracking-widest">The archives are empty.</div>';
     } catch(e){}
 }
 
@@ -253,16 +252,13 @@ window.postChapterComment = async (id) => {
         if(error) throw error;
         input.value = '';
         loadChapterComments(id);
-    } catch(e){ alert("Failed to post comment. Ensure SQL is run."); }
+    } catch(e){}
 };
 
 window.likeChapterInline = async (id) => {
     v(40);
     try {
-        const { error } = await supabase.from('chapter_likes').insert({ chapter_id: id, user_id: currentUser.id });
-        if(error && error.code === '23505') {
-            // Already liked, handle as unlike or just ignore
-        }
+        await supabase.from('chapter_likes').insert({ chapter_id: id, user_id: currentUser.id });
         loadChapters();
     } catch(e){}
 };
@@ -274,26 +270,17 @@ window.openReader = (id) => {
     const progress = document.getElementById('reader-progress-bar');
     if(!container) return;
     
-    const config = CHAPTER_CONFIG[id] || { title: "CHAPTER PORTAL", pages: DEFAULT_CHAPTER_PAGES };
-    
+    const config = CHAPTER_CONFIG[id] || { title: `CHAPTER ${id}`, pages: DEFAULT_CHAPTER_PAGES };
     container.innerHTML = '<div class="p-20 text-center opacity-10 text-[9px] uppercase tracking-[1em]">Summoning Portal...</div>';
     
     setTimeout(() => {
         container.innerHTML = '';
-        // Load images based on folder structure provided by user
         for(let i=1; i<=config.pages; i++) {
             const img = document.createElement('img');
-            // Path: images/imageschapter[ID]/[PAGE].png
             img.src = `images/imageschapter${id}/${i}.png`;
             img.className = "w-full shadow-2xl bg-slate-900";
             img.loading = "lazy";
-            
-            // Error handling if image doesn't exist
-            img.onerror = () => {
-                console.warn(`Failed to load page ${i} for chapter ${id}`);
-                img.style.display = 'none';
-            };
-            
+            img.onerror = () => { img.style.display = 'none'; };
             container.appendChild(img);
         }
     }, 400);
