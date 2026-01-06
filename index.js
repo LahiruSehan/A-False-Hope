@@ -262,7 +262,7 @@ async function loadHomeContent() {
             let name = u.display_name;
             if (isAuth) name = APP_CONFIG.author.toUpperCase();
             
-            const r = u.rating ? `<span class="user-rating-pill text-[7px] px-1.5 py-0.5 inline-block">${u.rating} ★</span>` : '';
+            const r = u.rating ? `<span class="user-rating-pill text-[7px] px-1.5 py-0.5 inline-block whitespace-nowrap flex-shrink-0">${u.rating} ★</span>` : '';
             
             let glowClass = '';
             if (isAuth) glowClass = 'creator-glow';
@@ -287,7 +287,7 @@ async function loadHomeContent() {
                         <p class="text-[10px] font-black ${nameColor} truncate">${name}</p>
                         ${r}
                     </div>
-                    <div class="mt-0.5">${tagHTML}</div>
+                    <div class="mt-1 leading-none">${tagHTML}</div>
                 </div>
             </div>`;
         }).join('');
@@ -378,7 +378,7 @@ async function loadChapterComments(id) {
             let name = p.display_name;
             if (isAuth) name = APP_CONFIG.author.toUpperCase();
             
-            const r = p.rating ? `<span class="user-rating-pill text-[7px] ml-0 inline-block">${p.rating} ★</span>` : '';
+            const r = p.rating ? `<span class="user-rating-pill text-[7px] ml-0 inline-block whitespace-nowrap flex-shrink-0">${p.rating} ★</span>` : '';
             
             let glowClass = '';
             if (isAuth) glowClass = 'creator-glow';
@@ -397,7 +397,7 @@ async function loadChapterComments(id) {
                         <p class="text-[9px] font-black ${nameColor} uppercase truncate">${name}</p>
                         ${r}
                     </div>
-                    <p class="text-[11px] text-slate-200 leading-snug mt-0.5">${c.content}</p>
+                    <p class="text-[11px] text-slate-200 leading-snug mt-1">${c.content}</p>
                 </div>
             </div>`;
         }).join('') || '<div class="text-center py-4 opacity-10 text-[8px] uppercase tracking-widest">The archives are empty.</div>';
@@ -525,7 +525,7 @@ async function loadReaders() {
             let name = r.display_name;
             if (isAuth) name = APP_CONFIG.author.toUpperCase();
             
-            const rating = r.rating ? `<span class="user-rating-pill text-[7px] px-1.5 py-0.5 inline-block">${r.rating} ★</span>` : '';
+            const rating = r.rating ? `<span class="user-rating-pill text-[7px] px-1.5 py-0.5 inline-block whitespace-nowrap flex-shrink-0">${r.rating} ★</span>` : '';
             const isSelf = r.id === currentUser.id;
             
             let glowClass = '';
@@ -552,7 +552,7 @@ async function loadReaders() {
                                 <p class="text-[11px] font-black text-white uppercase truncate">${name}</p>
                                 ${rating}
                             </div>
-                            <p class="text-[8px] ${roleColor} font-bold uppercase mt-0.5">${roleText}</p>
+                            <p class="text-[8px] ${roleColor} font-bold uppercase mt-1 leading-none">${roleText}</p>
                         </div>
                     </div>
                     ${!isSelf ? `<button onclick="toggleChat('${r.id}')" class="bg-blue-600 px-4 py-2 rounded-lg text-[9px] font-black uppercase text-white active:scale-95">Message</button>` : ''}
