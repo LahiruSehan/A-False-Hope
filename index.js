@@ -1,9 +1,12 @@
 
 import { GoogleGenAI } from "@google/genai";
 
-// SAFETY SHIM: Prevent crash on GitHub Pages where 'process' is undefined
+// Embedded API Key as requested
+const INTERNAL_API_KEY = "AIzaSyAOLlW_kN85EAassW-OV4OTuAT0Enl8RVc";
+
+// Safety Shim for environment
 if (typeof process === 'undefined') {
-    window.process = { env: { API_KEY: '' } };
+    window.process = { env: { API_KEY: INTERNAL_API_KEY } };
 }
 
 const SUPABASE_URL = 'https://qpagyfoedsrbenhsoemx.supabase.co';
@@ -14,7 +17,58 @@ const supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SU
 let currentUser = null;
 let profileData = null;
 let currentChapterId = 1;
+let currentXP = parseInt(localStorage.getItem('user-xp') || '0');
 const TOTAL_CHAPTERS = 30;
+
+// Level Config (10 Levels)
+const LEVEL_CONFIG = [
+    { level: 1, xp: 0, color: '#a855f7', name: 'Newbie' },
+    { level: 2, xp: 100, color: '#6366f1', name: 'Novice' },
+    { level: 3, xp: 250, color: '#3b82f6', name: 'Reader' },
+    { level: 4, xp: 500, color: '#06b6d4', name: 'Enthusiast' },
+    { level: 5, xp: 800, color: '#10b981', name: 'Bookworm' },
+    { level: 6, xp: 1200, color: '#f59e0b', name: 'Scholar' },
+    { level: 7, xp: 1700, color: '#f97316', name: 'Elite' },
+    { level: 8, xp: 2300, color: '#ec4899', name: 'Master' },
+    { level: 9, xp: 3000, color: '#ef4444', name: 'Legend' },
+    { level: 10, xp: 4000, color: '#ffffff', name: 'GOD' },
+];
+
+function getCurrentLevelInfo() {
+    let current = LEVEL_CONFIG[0];
+    for (const conf of LEVEL_CONFIG) {
+        if (currentXP >= conf.xp) current = conf;
+        else break;
+    }
+    const next = LEVEL_CONFIG.find(c => c.level === current.level + 1) || current;
+    const progress = current.level === 10 ? 100 : ((currentXP - current.xp) / (next.xp - current.xp)) * 100;
+    return { ...current, progress, nextXp: next.xp };
+}
+
+window.addXP = function(amount) {
+    currentXP += amount;
+    localStorage.setItem('user-xp', currentXP);
+    updateXPUI();
+}
+
+function updateXPUI() {
+    const info = getCurrentLevelInfo();
+    const bars = document.querySelectorAll('.xp-bar-fill');
+    bars.forEach(bar => {
+        bar.style.width = `${info.progress}%`;
+        bar.style.backgroundColor = info.color;
+    });
+    
+    const levelLabels = document.querySelectorAll('.level-label');
+    levelLabels.forEach(el => el.innerText = `LVL ${info.level}`);
+    
+    const rankLabels = document.querySelectorAll('.rank-label');
+    rankLabels.forEach(el => el.innerText = info.name.toUpperCase());
+
+    // Update Theme based on level
+    document.documentElement.style.setProperty('--aura-color', info.color);
+    document.documentElement.style.setProperty('--aura-glow', `${info.color}66`);
+}
 
 // Utility: Show View
 window.showView = function(viewId) {
@@ -22,11 +76,10 @@ window.showView = function(viewId) {
     const target = document.getElementById(viewId);
     if (target) {
         target.classList.remove('hidden');
-        target.classList.add('animate-in', 'fade-in', 'duration-500');
+        target.classList.add('flex-view-active');
     }
 
     const nav = document.getElementById('app-nav');
-    // Hide nav in reader for immersion
     if (viewId !== 'loading-view' && viewId !== 'login-view' && viewId !== 'reader-view') {
         nav.classList.remove('hidden');
     } else {
@@ -52,6 +105,7 @@ async function checkAuth() {
         if (user) {
             await fetchProfile();
             window.showView('home-view');
+            startReadingTimer();
         } else {
             window.showView('login-view');
         }
@@ -76,7 +130,7 @@ async function fetchProfile() {
     if (error && error.code === 'PGRST116') {
         const newProfile = {
             id: currentUser.id,
-            display_name: currentUser.user_metadata.full_name || 'Initiate Mage',
+            display_name: currentUser.user_metadata.full_name || 'New Reader',
             avatar_url: currentUser.user_metadata.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser.id}`
         };
         await supabase.from('profiles').insert(newProfile);
@@ -85,20 +139,15 @@ async function fetchProfile() {
         profileData = data;
     }
     updateNavUI();
+    updateXPUI();
 }
 
 function updateNavUI() {
     if (!profileData) return;
-    const nameEls = ['nav-user-name', 'profile-display-name'];
-    nameEls.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.innerText = profileData.display_name.toUpperCase();
-    });
-    const avatarEls = ['nav-user-avatar', 'profile-avatar'];
-    avatarEls.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.src = profileData.avatar_url;
-    });
+    document.getElementById('nav-user-name').innerText = profileData.display_name.toUpperCase();
+    document.getElementById('profile-display-name').innerText = profileData.display_name.toUpperCase();
+    document.getElementById('nav-user-avatar').src = profileData.avatar_url;
+    document.getElementById('profile-avatar').src = profileData.avatar_url;
 }
 
 function fillProfileForm() {
@@ -110,13 +159,8 @@ function fillProfileForm() {
 
 // 2. AI GENERATION
 async function generateAIAvatar() {
-    const hasKey = await window.aistudio.hasSelectedApiKey();
-    if (!hasKey) {
-        await window.aistudio.openSelectKey();
-    }
-
     const prompt = document.getElementById('ai-prompt').value.trim();
-    if (!prompt) return alert('Describe your astral form!');
+    if (!prompt) return alert('Enter a description!');
 
     const loader = document.getElementById('ai-loading-overlay');
     const preview = document.getElementById('generated-avatar-preview');
@@ -124,10 +168,10 @@ async function generateAIAvatar() {
 
     loader.classList.remove('hidden');
     try {
-        const aiInstance = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        const aiInstance = new GoogleGenAI({ apiKey: INTERNAL_API_KEY });
         const response = await aiInstance.models.generateContent({
             model: 'gemini-2.5-flash-image',
-            contents: { parts: [{ text: `Dark fantasy anime portrait: ${prompt}. Glowing eyes, mystic aura, highly detailed manga art.` }] },
+            contents: { parts: [{ text: `Modern anime style profile picture: ${prompt}. High quality, vibrant.` }] },
             config: { imageConfig: { aspectRatio: "1:1" } }
         });
 
@@ -139,8 +183,7 @@ async function generateAIAvatar() {
             document.getElementById('ai-placeholder-text').classList.add('hidden');
         }
     } catch (err) {
-        if (err.message.includes("not found")) await window.aistudio.openSelectKey();
-        else alert('Astral interference detected. Try again.');
+        alert('Generation failed. Please check your network.');
     } finally {
         loader.classList.add('hidden');
     }
@@ -154,16 +197,15 @@ window.openReader = function(id) {
     const title = document.getElementById('reader-title');
     title.innerText = `CHAPTER ${id}`;
     
-    // Clear and load mock pages
     container.innerHTML = '';
     for (let i = 1; i <= 5; i++) {
         const img = document.createElement('img');
-        // REPLACE WITH ACTUAL FOLDER LOGIC: `./chapter_${id}/page_${i}.jpg`
-        img.src = `https://picsum.photos/seed/chapter${id}page${i}/800/1200`;
-        img.className = "w-full h-auto mb-2 shadow-2xl rounded-sm";
+        img.src = `https://picsum.photos/seed/ch${id}pg${i}/800/1200`;
+        img.className = "w-full h-auto mb-1";
         img.loading = "lazy";
         container.appendChild(img);
     }
+    window.addXP(20); // XP for opening chapter
 }
 
 // 4. SETTINGS
@@ -172,10 +214,20 @@ window.updateAura = function(color) {
     localStorage.setItem('aura-color', color);
 }
 
-// 5. BOOTSTRAP
+// 5. READING TIMER
+let readTimeSeconds = parseInt(localStorage.getItem('read-time') || '0');
+function startReadingTimer() {
+    setInterval(() => {
+        readTimeSeconds++;
+        localStorage.setItem('read-time', readTimeSeconds);
+        const mins = Math.floor(readTimeSeconds / 60);
+        document.querySelectorAll('.read-time-label').forEach(el => el.innerText = `${mins}m read`);
+        if (readTimeSeconds % 60 === 0) window.addXP(5); // 5 XP every minute
+    }, 1000);
+}
+
+// 6. BOOTSTRAP
 document.addEventListener('DOMContentLoaded', () => {
-    const savedColor = localStorage.getItem('aura-color');
-    if (savedColor) window.updateAura(savedColor);
     checkAuth();
 
     document.getElementById('google-login-btn')?.addEventListener('click', () => {
@@ -189,6 +241,7 @@ document.addEventListener('DOMContentLoaded', () => {
         profileData.avatar_url = url;
         updateNavUI();
         toggleModal('gemini-modal');
+        window.addXP(50);
     });
 
     document.getElementById('save-profile-btn')?.addEventListener('click', async () => {
@@ -200,10 +253,10 @@ document.addEventListener('DOMContentLoaded', () => {
         await supabase.from('profiles').update(updates).eq('id', currentUser.id);
         profileData = {...profileData, ...updates};
         updateNavUI();
-        alert('Manifested!');
+        alert('Profile Updated!');
+        window.addXP(10);
     });
 
-    // Reader Scroll Progress
     window.addEventListener('scroll', () => {
         const reader = document.getElementById('reader-view');
         if (!reader.classList.contains('hidden')) {
@@ -221,12 +274,12 @@ function loadChapters() {
     let html = '';
     for (let i = 1; i <= TOTAL_CHAPTERS; i++) {
         html += `
-            <div class="glass-panel p-6 rounded-[2.5rem] flex items-center justify-between active:scale-95 transition-all border border-white/5" onclick="openReader(${i})">
-                <div class="flex items-center gap-6">
-                    <span class="font-magic text-2xl aura-text opacity-50 italic">${String(i).padStart(2, '0')}</span>
+            <div class="glass-panel p-5 rounded-3xl flex items-center justify-between active:scale-95 transition-all border border-white/5" onclick="openReader(${i})">
+                <div class="flex items-center gap-5">
+                    <span class="font-bold text-xl opacity-30">${String(i).padStart(2, '0')}</span>
                     <div>
-                        <h4 class="font-bold text-sm tracking-tight">The Veiled Truth</h4>
-                        <p class="text-[8px] text-slate-500 uppercase tracking-widest font-black">Chapter ${i}</p>
+                        <h4 class="font-bold text-sm">Chapter ${i}</h4>
+                        <p class="text-[8px] text-slate-500 uppercase font-black">Ready to read</p>
                     </div>
                 </div>
                 <div class="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-slate-600">
@@ -235,4 +288,20 @@ function loadChapters() {
             </div>`;
     }
     container.innerHTML = html;
+}
+
+window.openRecognition = function(name) {
+    const iconBox = document.getElementById('recognition-icon-box');
+    const nameEl = document.getElementById('recognition-name');
+    const textEl = document.getElementById('recognition-text');
+    nameEl.innerText = name;
+    if (name === 'MINASHA') {
+        iconBox.innerHTML = '❤️';
+        textEl.innerText = "Thank you for supporting our community!";
+    } else {
+        iconBox.innerHTML = '🔥';
+        textEl.innerText = "A true legend who keeps the flame alive.";
+    }
+    window.toggleModal('recognition-modal');
+    window.addXP(5);
 }
