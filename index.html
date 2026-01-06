@@ -41,7 +41,7 @@
         .scroll-container::-webkit-scrollbar { width: 4px; }
         .scroll-container::-webkit-scrollbar-thumb { background: rgba(168, 85, 247, 0.3); border-radius: 10px; }
         
-        /* Creator Styling */
+        /* Creator Aura */
         .creator-glow { 
             box-shadow: 0 0 20px rgba(168, 85, 247, 0.6); 
             border: 2px solid #a855f7 !important;
@@ -225,7 +225,7 @@
                 <div class="flex justify-between items-center"><label class="text-[9px] font-bold text-slate-400 uppercase">Particles</label><label class="toggle-switch"><input type="checkbox" id="set-particles" checked onchange="appSettings.toggleParticles(this.checked)"><span class="slider"></span></label></div>
                 <div class="flex justify-between items-center"><label class="text-[9px] font-bold text-slate-400 uppercase">Haptics</label><label class="toggle-switch"><input type="checkbox" id="set-haptic" checked onchange="appSettings.toggleHaptic(this.checked)"><span class="slider"></span></label></div>
                 <div class="space-y-1"><label class="text-[9px] font-bold text-slate-400 uppercase">Music Volume</label><input type="range" min="0" max="1" step="0.1" value="0.5" oninput="appSettings.setVolume(this.value)" class="w-full accent-purple-600 bg-white/10 h-1 rounded-full appearance-none"></div>
-                <div class="space-y-1"><label class="text-[9px] font-bold text-slate-400 uppercase">Screen Brightness</label><input type="range" min="0" max="0.8" step="0.1" value="0" oninput="appSettings.setBrightness(this.value)" class="w-full accent-purple-600 bg-white/10 h-1 rounded-full appearance-none"></div>
+                <div class="space-y-1"><label class="text-[9px] font-bold text-slate-400 uppercase">Brightness</label><input type="range" min="0" max="0.8" step="0.1" value="0" oninput="appSettings.setBrightness(this.value)" class="w-full accent-purple-600 bg-white/10 h-1 rounded-full appearance-none"></div>
                 <button onclick="appSettings.clearCache()" class="w-full py-2 bg-red-500/10 text-red-500 border border-red-500/20 rounded-lg text-[8px] font-black uppercase">Clear Data</button>
             </div>
         </div>
@@ -244,7 +244,7 @@
 
     <div id="chapter-comments-modal" class="fixed inset-0 z-[400] hidden bg-black/95 flex items-center justify-center p-6">
         <div class="w-full max-w-[400px] h-[80vh] glass-panel p-6 rounded-3xl flex flex-col border border-white/10">
-            <div class="flex justify-between items-center mb-4"><h3 class="text-[10px] font-black text-white uppercase tracking-widest">Chapter Comments</h3><button onclick="toggleModal('chapter-comments-modal')" class="text-slate-500">✕</button></div>
+            <div class="flex justify-between items-center mb-4"><h3 class="text-[10px] font-black text-white uppercase tracking-widest">Comments</h3><button onclick="toggleModal('chapter-comments-modal')" class="text-slate-500">✕</button></div>
             <div id="chapter-comments-list" class="flex-1 overflow-y-auto space-y-4 mb-4 scroll-container"></div>
             <div class="flex gap-2"><input id="chapter-comment-input" type="text" placeholder="Add a comment..." class="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-[11px] text-white outline-none"><button onclick="submitChapterComment()" class="bg-purple-600 px-4 rounded-xl text-[10px] font-black uppercase">Post</button></div>
         </div>
@@ -252,7 +252,7 @@
 
     <div id="settings-modal" class="fixed inset-0 z-[200] hidden bg-black/95 flex items-center justify-center p-6">
         <div class="w-full max-w-[320px] glass-panel p-6 rounded-2xl space-y-5 border border-white/10 overflow-y-auto max-h-[90vh]">
-            <div class="flex justify-between items-center"><span class="text-[10px] font-black text-white uppercase">Profile Control</span><button onclick="toggleModal('settings-modal')" class="text-slate-500">✕</button></div>
+            <div class="flex justify-between items-center"><span class="text-[10px] font-black text-white uppercase">Profile</span><button onclick="toggleModal('settings-modal')" class="text-slate-500">✕</button></div>
             <div class="flex flex-col items-center gap-2">
                 <div id="profile-avatar-wrapper" class="rounded-full p-1"><img id="settings-avatar" src="" class="w-16 h-16 rounded-full object-cover"></div>
                 <div class="text-center">
@@ -263,7 +263,7 @@
             <div class="space-y-3">
                 <input id="profile-edit-name" type="text" class="bg-white/5 border border-white/10 rounded-lg p-2 w-full text-xs text-white" placeholder="Display Name">
                 <textarea id="profile-edit-bio" rows="2" class="bg-white/5 border border-white/10 rounded-lg p-2 w-full text-xs text-white resize-none" placeholder="Short Bio"></textarea>
-                <button onclick="updateProfile()" class="w-full bg-purple-600 py-2 rounded-lg font-bold text-[10px] uppercase text-white">SAVE CHANGES</button>
+                <button onclick="updateProfile()" class="w-full bg-purple-600 py-2 rounded-lg font-bold text-[10px] uppercase text-white">SAVE PROFILE</button>
             </div>
             <button onclick="supabase.auth.signOut().then(() => location.reload())" class="w-full text-red-500/50 font-bold text-[8px] uppercase">LOG OUT</button>
         </div>
