@@ -93,7 +93,6 @@ window.showView = function(id, push = true) {
     if (id === 'chapters-view') loadChapters();
     if (id === 'readers-view') loadReaders();
     
-    // Ensure the view is at top when switching
     if (id !== 'reader-view') document.getElementById(id).scrollTop = 0;
 };
 
@@ -135,7 +134,11 @@ async function loadHomeContent() {
                 <span class="text-[8px] font-black text-purple-400">LVL ${u.level}</span>
             </div>`).join('');
     } else if (homeTab === 'gallery') {
-        const items = ['https://picsum.photos/seed/fh1/200/200','https://picsum.photos/seed/fh2/200/200','https://picsum.photos/seed/fh3/200/200','https://picsum.photos/seed/fh4/200/200'];
+        const items = [
+            'https://picsum.photos/seed/fh1/300/300', 'https://picsum.photos/seed/fh2/300/300',
+            'https://picsum.photos/seed/fh3/300/300', 'https://picsum.photos/seed/fh4/300/300',
+            'https://picsum.photos/seed/fh5/300/300', 'https://picsum.photos/seed/fh6/300/300'
+        ];
         c.innerHTML = `<div class="grid grid-cols-2 gap-3">${items.map(img => `<img src="${img}" class="w-full aspect-square object-cover rounded-xl border border-white/5 cursor-pointer active:scale-95 transition-transform" onclick="openLightbox('${img}')">`).join('')}</div>`;
     }
     loadActivePoll();
@@ -203,7 +206,6 @@ window.openReader = async (id) => {
     const container = document.getElementById('reader-pages');
     container.innerHTML = '<div class="p-20 text-center opacity-10 text-[9px] uppercase tracking-[1em]">Summoning...</div>';
     
-    // Explicitly scroll reader to top
     document.getElementById('reader-view').scrollTop = 0;
 
     const { data: prog } = await supabase.from('reading_progress').select('*').eq('user_id', currentUser.id).eq('chapter_id', id).single();
@@ -267,7 +269,6 @@ window.showUserProfile = async (userId) => {
     window.toggleModal('user-detail-modal');
 };
 
-// LIVE MESSAGING
 window.toggleExpandChat = function(userId) {
     const card = document.getElementById(`user-card-${userId}`);
     const isExpanded = card.classList.contains('expanded');

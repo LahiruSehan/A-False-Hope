@@ -17,7 +17,7 @@
         body { font-family: 'Inter', sans-serif; background: var(--void-black); color: #f8fafc; -webkit-tap-highlight-color: transparent; }
         #particle-canvas { position: fixed; inset: 0; z-index: -1; pointer-events: none; transition: opacity 0.5s; }
         
-        /* Fixed views that are actually scrollable */
+        /* Fixed views that are scrollable */
         .view { height: 100vh; width: 100vw; position: fixed; inset: 0; z-index: 10; overflow-y: auto; -webkit-overflow-scrolling: touch; }
         .hidden { display: none !important; }
         
@@ -52,8 +52,24 @@
         .manga-page.zoomed { transform: scale(2.2); cursor: zoom-out; z-index: 50; position: relative; }
 
         #brightness-overlay { position: fixed; inset: 0; background: black; pointer-events: none; z-index: 2000; opacity: 0; transition: opacity 0.3s; }
-        .recognition-card { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 12px; }
         
+        /* Animated Gradient Buttons for Recognition */
+        @keyframes gradient-move {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        .btn-minasha {
+            background: linear-gradient(270deg, #f43f5e, #ef4444, #ec4899);
+            background-size: 300% 300%;
+            animation: gradient-move 3s ease infinite;
+        }
+        .btn-arosha {
+            background: linear-gradient(270deg, #eab308, #f97316, #fbbf24);
+            background-size: 300% 300%;
+            animation: gradient-move 3s ease infinite;
+        }
+
         .toggle-switch { position: relative; display: inline-block; width: 34px; height: 18px; }
         .toggle-switch input { opacity: 0; width: 0; height: 0; }
         .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(255,255,255,0.1); transition: .4s; border-radius: 34px; }
@@ -61,13 +77,14 @@
         input:checked + .slider { background-color: #a855f7; }
         input:checked + .slider:before { transform: translateX(16px); }
 
-        /* Chat Expand Animation */
         .expandable-content { max-height: 0; overflow: hidden; transition: max-height 0.4s ease-out; }
         .expanded .expandable-content { max-height: 500px; }
         
-        /* Ensure Reader Scrolling */
         #reader-view { overflow-y: scroll !important; -webkit-overflow-scrolling: touch; }
         #reader-pages { padding-bottom: 50px; }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
 <body class="bg-[#020617]">
@@ -101,13 +118,10 @@
                 <button id="messages-btn" onclick="showView('readers-view')" class="p-2 text-slate-400">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
                 </button>
-                
-                <!-- Larger Reader Buttons -->
                 <button id="reader-like-btn" onclick="likeChapterAction()" class="p-3 text-red-500 hidden scale-150 transition-transform active:scale-125">♥</button>
                 <button id="reader-comment-btn" onclick="openChapterComments()" class="p-3 text-slate-200 hidden scale-150 transition-transform active:scale-125">
                     <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
                 </button>
-
                 <button onclick="toggleModal('app-settings-modal')" class="p-2 text-slate-400 rotating-gear">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
@@ -147,18 +161,15 @@
                     <button onclick="toggleModal('rating-modal')" class="w-11 h-11 bg-white/5 border border-white/10 rounded-lg flex items-center justify-center text-yellow-500">★</button>
                 </div>
 
-                <div class="mt-8 space-y-3">
-                    <h3 class="text-[10px] font-black text-white uppercase tracking-[0.2em] opacity-40">Special Recognition</h3>
-                    <div class="flex gap-2 overflow-x-auto pb-2 scroll-container">
-                        <div onclick="openRecognition('MINASHA')" class="recognition-card flex-shrink-0 w-[140px] cursor-pointer">
-                            <p class="text-[9px] font-black text-white">MINASHA</p>
-                            <p class="text-[7px] text-slate-500 uppercase mt-1">Lead Character</p>
-                        </div>
-                        <div onclick="openRecognition('AROSHA')" class="recognition-card flex-shrink-0 w-[140px] cursor-pointer">
-                            <p class="text-[9px] font-black text-white">AROSHA</p>
-                            <p class="text-[7px] text-slate-500 uppercase mt-1">The Hope</p>
-                        </div>
-                    </div>
+                <!-- SPECIAL RECOGNITION ROW -->
+                <div class="mt-8 flex items-center gap-3 overflow-x-auto py-2 scroll-container no-scrollbar whitespace-nowrap">
+                    <h3 class="text-[9px] font-black text-white uppercase tracking-widest opacity-40 flex-shrink-0">Special Recognition:</h3>
+                    <button onclick="openRecognition('MINASHA')" class="btn-minasha flex-shrink-0 px-5 py-2 rounded-full text-[10px] font-black text-white flex items-center gap-2 shadow-xl shadow-red-500/20 active:scale-95 transition-transform">
+                        MINASHA ❤️
+                    </button>
+                    <button onclick="openRecognition('AROSHA')" class="btn-arosha flex-shrink-0 px-5 py-2 rounded-full text-[10px] font-black text-white flex items-center gap-2 shadow-xl shadow-orange-500/20 active:scale-95 transition-transform">
+                        AROSHA 🔥
+                    </button>
                 </div>
                 
                 <div class="pt-6">
@@ -252,6 +263,10 @@
             <button onclick="supabase.auth.signOut().then(() => location.reload())" class="w-full text-red-500/50 font-bold text-[8px] uppercase">TERMINATE SESSION</button>
         </div>
     </div>
+
+    <div id="recognition-modal" class="fixed inset-0 z-[250] hidden bg-black/98 flex items-center justify-center p-8"><div class="w-full max-w-[280px] glass-panel p-8 rounded-2xl text-center space-y-4 border border-purple-500/20"><div id="recognition-icon-box" class="text-3xl">❤️</div><h3 id="recognition-name" class="font-bold text-sm text-white tracking-widest uppercase">NAME</h3><p id="recognition-text" class="text-[10px] text-slate-400 leading-relaxed font-medium">Loading wisdom...</p><button onclick="toggleModal('recognition-modal')" class="w-full py-2.5 bg-purple-600 rounded-lg text-[9px] font-bold text-white uppercase tracking-widest">CLOSE</button></div></div>
+    
+    <div id="rating-modal" class="fixed inset-0 z-[200] hidden bg-black/95 flex items-center justify-center p-6"><div class="w-full max-w-[300px] glass-panel p-8 rounded-2xl text-center space-y-6 border border-white/10"><h3 class="font-bold text-xs text-white uppercase tracking-widest">Rate the Story</h3><div id="star-container" class="flex justify-center py-2 text-2xl gap-2"><span onclick="setRating(1)" class="star cursor-pointer opacity-30">★</span><span onclick="setRating(2)" class="star cursor-pointer opacity-30">★</span><span onclick="setRating(3)" class="star cursor-pointer opacity-30">★</span><span onclick="setRating(4)" class="star cursor-pointer opacity-30">★</span><span onclick="setRating(5)" class="star cursor-pointer opacity-30">★</span></div><button onclick="submitRating()" class="w-full py-3 bg-purple-600 rounded-lg font-bold text-[10px] uppercase tracking-widest">SUBMIT</button><button onclick="toggleModal('rating-modal')" class="text-slate-600 text-[9px] font-bold uppercase">CANCEL</button></div></div>
 
     <script src="index.js" type="module"></script>
 </body>
