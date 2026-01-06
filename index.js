@@ -459,8 +459,8 @@ window.shareStory = () => {
 };
 
 const recognitionData = {
-    'MINASHA': { text: "The primary vessel of the story. Carries the weight of the void within her soul.", icon: "❤️" },
-    'AROSHA': { text: "The beacon in the dark. A flame that flickers against destiny.", icon: "🔥" }
+    'MINASHA': { text: "Inspired the creation and personality of Viyona — becoming the heart behind her emotions, elegance, and charm — and contributed romantic moment ideas that shaped some of the story’s most beautiful emotional and stylistic scenes. 🌙💞✨", icon: "❤️" },
+    'AROSHA': { text: "Early reviewer and first-ever reader of HOPE 2877 (BOOK) & the first to review every manga page as it’s created, providing fresh perspectives, inspirational suggestions and deep story-strengthening feedback throughout the entire creative process. 🌌✨", icon: "🔥" }
 };
 window.openRecognition = (key) => {
     const d = recognitionData[key];
