@@ -209,21 +209,46 @@ window.toggleChapterInlineComments = async (id) => {
 async function loadChapterCommentsInline(id) {
     const list = document.getElementById(`chapter-comments-list-${id}`);
     try {
-        // Updated selector to use ! to specify the foreign key relationship clearly to resolve PostgREST 400 errors
-        const { data } = await supabase.from('chapter_comments').select('*, profiles!user_id(display_name, avatar_url, email)').eq('chapter_id', id).order('created_at', { ascending: false });
-        if (!data) return;
-        list.innerHTML = data.map(c => `
+        // Standard join syntax. If profiles!user_id fails, try this simpler one.
+        const { data, error } = await supabase
+            .from('chapter_comments')
+            .select('*, profiles(display_name, avatar_url, email)')
+            .eq('chapter_id', id)
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            // Fallback for cases where join causes 400
+            console.warn("Join failed, trying fallback...", error);
+            const { data: fallbackData } = await supabase.from('chapter_comments').select('*').eq('chapter_id', id).order('created_at', { ascending: false });
+            if (fallbackData) {
+                list.innerHTML = fallbackData.map(c => `<div class="p-3 bg-white/5 rounded-2xl mb-2 text-[11px] text-slate-200">${c.content}</div>`).join('');
+                return;
+            }
+        }
+
+        if (!data || data.length === 0) {
+            list.innerHTML = '<p class="text-[9px] opacity-20 text-center uppercase tracking-widest py-6">No comments recorded.</p>';
+            return;
+        }
+
+        list.innerHTML = data.map(c => {
+            const profile = c.profiles || { display_name: 'Unknown Traveler', avatar_url: '', email: '' };
+            return `
             <div class="flex gap-3 items-start p-3 bg-white/5 rounded-2xl border border-white/5">
-                <img src="${c.profiles.avatar_url}" class="w-8 h-8 rounded-full object-cover ${c.profiles.email === AUTHOR_EMAIL ? 'creator-glow' : ''}">
+                <img src="${profile.avatar_url}" class="w-8 h-8 rounded-full object-cover ${profile.email === AUTHOR_EMAIL ? 'creator-glow' : ''}">
                 <div class="flex-1">
                     <div class="flex justify-between items-center mb-0.5">
-                        <p class="text-[9px] font-black text-purple-400 uppercase tracking-tight">${c.profiles.display_name}</p>
+                        <p class="text-[9px] font-black text-purple-400 uppercase tracking-tight">${profile.display_name}</p>
                         <p class="text-[7px] text-slate-600 uppercase font-bold">${new Date(c.created_at).toLocaleDateString()}</p>
                     </div>
                     <p class="text-[11px] text-slate-200 leading-normal">${c.content}</p>
                 </div>
-            </div>`).join('') || '<p class="text-[9px] opacity-20 text-center uppercase tracking-widest py-6">No comments recorded.</p>';
-    } catch(e){ console.error(e); }
+            </div>`;
+        }).join('');
+    } catch(e){ 
+        console.error("Comments error:", e);
+        list.innerHTML = '<p class="text-[8px] text-red-500/50 text-center py-4">Failed to load scrolls.</p>';
+    }
 }
 
 window.submitChapterCommentInline = async (id) => {
@@ -232,7 +257,7 @@ window.submitChapterCommentInline = async (id) => {
     if(!content) return;
     try {
         const { error } = await supabase.from('chapter_comments').insert({ chapter_id: id, user_id: currentUser.id, content });
-        if(!error) { input.value = ''; loadChapterCommentsInline(id); }
+        if(!error) { input.value = ''; loadChapterCommentsInline(id); loadChapters(); }
     } catch(e){}
 };
 
@@ -278,14 +303,14 @@ window.openReader = async (id) => {
 window.openChapterComments = async () => {
     if(!currentChapterId) return;
     try {
-        const { data } = await supabase.from('chapter_comments').select('*, profiles!user_id(display_name, avatar_url, email)').eq('chapter_id', currentChapterId).order('created_at', { ascending: false });
+        const { data } = await supabase.from('chapter_comments').select('*, profiles(display_name, avatar_url, email)').eq('chapter_id', currentChapterId).order('created_at', { ascending: false });
         const list = document.getElementById('chapter-comments-list');
         list.innerHTML = (data || []).map(c => `
             <div class="flex gap-3 p-3 bg-white/5 rounded-xl border border-white/5">
-                <img src="${c.profiles.avatar_url}" class="w-8 h-8 rounded-full object-cover border border-white/10 ${c.profiles.email === AUTHOR_EMAIL ? 'creator-glow' : ''}">
+                <img src="${c.profiles?.avatar_url || ''}" class="w-8 h-8 rounded-full object-cover border border-white/10 ${c.profiles?.email === AUTHOR_EMAIL ? 'creator-glow' : ''}">
                 <div class="flex-1">
                     <div class="flex justify-between items-center">
-                        <p class="text-[9px] font-black text-purple-400 uppercase">${c.profiles.display_name}</p>
+                        <p class="text-[9px] font-black text-purple-400 uppercase">${c.profiles?.display_name || 'Unknown'}</p>
                         <p class="text-[7px] text-slate-600">${new Date(c.created_at).toLocaleDateString()}</p>
                     </div>
                     <p class="text-[11px] text-slate-300 mt-1">${c.content}</p>
@@ -301,13 +326,13 @@ window.submitChapterComment = async () => {
     if(!content || !currentChapterId) return;
     try {
         const { error } = await supabase.from('chapter_comments').insert({ chapter_id: currentChapterId, user_id: currentUser.id, content });
-        if(!error) { input.value = ''; openChapterComments(); }
+        if(!error) { input.value = ''; openChapterComments(); loadChapters(); }
     } catch(e){}
 };
 
 window.likeChapterAction = async () => {
     v(60);
-    try { await supabase.from('chapter_likes').insert({ chapter_id: currentChapterId, user_id: currentUser.id }); alert("Chapter Liked."); } catch(e){}
+    try { await supabase.from('chapter_likes').insert({ chapter_id: currentChapterId, user_id: currentUser.id }); alert("Chapter Liked."); loadChapters(); } catch(e){}
 };
 
 window.showUserProfile = async (userId) => {
