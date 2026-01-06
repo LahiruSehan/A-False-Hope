@@ -209,7 +209,8 @@ window.toggleChapterInlineComments = async (id) => {
 async function loadChapterCommentsInline(id) {
     const list = document.getElementById(`chapter-comments-list-${id}`);
     try {
-        const { data } = await supabase.from('chapter_comments').select('*, profiles:user_id(display_name, avatar_url, email)').eq('chapter_id', id).order('created_at', { ascending: false });
+        // Updated selector to use ! to specify the foreign key relationship clearly to resolve PostgREST 400 errors
+        const { data } = await supabase.from('chapter_comments').select('*, profiles!user_id(display_name, avatar_url, email)').eq('chapter_id', id).order('created_at', { ascending: false });
         if (!data) return;
         list.innerHTML = data.map(c => `
             <div class="flex gap-3 items-start p-3 bg-white/5 rounded-2xl border border-white/5">
@@ -277,7 +278,7 @@ window.openReader = async (id) => {
 window.openChapterComments = async () => {
     if(!currentChapterId) return;
     try {
-        const { data } = await supabase.from('chapter_comments').select('*, profiles:user_id(display_name, avatar_url, email)').eq('chapter_id', currentChapterId).order('created_at', { ascending: false });
+        const { data } = await supabase.from('chapter_comments').select('*, profiles!user_id(display_name, avatar_url, email)').eq('chapter_id', currentChapterId).order('created_at', { ascending: false });
         const list = document.getElementById('chapter-comments-list');
         list.innerHTML = (data || []).map(c => `
             <div class="flex gap-3 p-3 bg-white/5 rounded-xl border border-white/5">
@@ -430,7 +431,7 @@ window.updateProfile = async function() {
         const { error } = await supabase.from('profiles').update({ display_name: name, bio }).eq('id', currentUser.id);
         if (!error) { syncProfile(); alert('Profile updated.'); }
     } catch(e){}
-};
+}; 
 
 window.shareStory = () => {
     const url = window.location.origin + window.location.pathname;
