@@ -1,4 +1,4 @@
-import { APP_CONFIG, CHAPTER_CONFIG, DEFAULT_CHAPTER_PAGES } from './config.js';
+import { APP_CONFIG, CHAPTER_CONFIG, DEFAULT_CHAPTER_PAGES, AVATAR_CONFIG } from './config.js';
 
 const INTERNAL_API_KEY = "AIzaSyAOLlW_kN85EAassW-OV4OTuAT0Enl8RVc";
 if (typeof process === 'undefined') window.process = { env: { API_KEY: INTERNAL_API_KEY } };
@@ -15,6 +15,7 @@ let currentChapterId = null;
 let activeChatId = null;
 let deferredPrompt = null;
 let lastScrollTop = 0; // For auto-hide UI
+let readingSaveTimeout = null;
 
 // --- SETTINGS MANAGEMENT ---
 const DEFAULT_SETTINGS = {
@@ -146,6 +147,13 @@ async function checkAuth() {
         currentUser = user;
         await syncProfile();
         setupRealtime();
+        
+        // Admin Check
+        if(user.email && user.email.toLowerCase() === APP_CONFIG.authorEmail.toLowerCase()){
+            const adminBtn = document.getElementById('admin-btn');
+            if(adminBtn) adminBtn.classList.remove('hidden');
+        }
+
         window.showView('home-view');
     } else { window.showView('login-view'); }
 }
@@ -182,7 +190,9 @@ async function syncProfile() {
                 email: currentUser.email,
                 bio: 'Surviving the hope.',
                 rating: 0,
-                last_seen: new Date()
+                last_seen: new Date(),
+                last_chapter: 0,
+                last_page: 0
             };
             await supabase.from('profiles').upsert(newProfile);
             profileData = newProfile;
@@ -217,6 +227,7 @@ window.showView = function(id, push = true) {
     if (id === 'home-view') loadHomeContent();
     if (id === 'chapters-view') loadChapters();
     if (id === 'readers-view') loadReaders();
+    if (id === 'admin-view') loadAdminDashboard();
     if (id !== 'reader-view') target.scrollTop = 0;
 };
 
@@ -238,6 +249,58 @@ window.toggleModal = (id) => {
             if(nameInp) nameInp.value = profileData.display_name;
             if(bioInp) bioInp.value = profileData.bio || '';
         }
+    }
+};
+
+// --- AVATAR SYSTEM ---
+window.openAvatarSelection = () => {
+    // Hide settings modal first
+    const settingsModal = document.getElementById('settings-modal');
+    if(settingsModal) settingsModal.classList.add('hidden');
+    
+    const grid = document.getElementById('avatar-grid-container');
+    if (!grid) return;
+
+    // Use logged in user's last chapter, or 0 if not set
+    const userMaxChapter = profileData ? (profileData.last_chapter || 0) : 0;
+    
+    grid.innerHTML = AVATAR_CONFIG.map((av, index) => {
+        const isLocked = av.unlockChapter > userMaxChapter;
+        const isSelected = profileData && profileData.avatar_url === av.url;
+        
+        let lockHtml = isLocked 
+            ? `<div class="avatar-lock-icon"><span class="text-xs font-bold text-white drop-shadow-md">CH ${av.unlockChapter}</span></div>` 
+            : '';
+            
+        let clickAction = isLocked 
+            ? `alert('Read up to Chapter ${av.unlockChapter} to unlock ${av.name}!')` 
+            : `selectAvatar('${av.url}')`;
+
+        return `
+            <div onclick="${clickAction}" class="avatar-option ${isLocked ? 'locked' : ''} ${isSelected ? 'selected' : ''}">
+                <img src="${av.url}" loading="lazy">
+                ${lockHtml}
+                ${isSelected ? '<div class="absolute inset-0 border-[3px] border-purple-500 rounded-full"></div>' : ''}
+            </div>
+        `;
+    }).join('');
+
+    window.toggleModal('avatar-modal');
+};
+
+window.selectAvatar = async (url) => {
+    if(!url || !currentUser) return;
+    v(20);
+    try {
+        // Optimistic Update
+        profileData.avatar_url = url;
+        updateUI();
+        window.toggleModal('avatar-modal');
+        
+        await supabase.from('profiles').update({ avatar_url: url }).eq('id', currentUser.id);
+        alert("Avatar Updated!");
+    } catch(e) {
+        alert("Failed to update avatar.");
     }
 };
 
@@ -270,7 +333,16 @@ async function loadHomeContent() {
 function renderNews(container) {
     container.innerHTML = `
         <div class="animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <!-- News Item 1 -->
+             <div class="news-card">
+                 <div class="flex justify-between items-start mb-2">
+                    <h4 class="text-white text-xs font-black uppercase tracking-widest">Avatar Update</h4>
+                    <span class="text-[8px] text-green-400 bg-green-500/10 px-2 py-0.5 rounded border border-green-500/20">NEW</span>
+                </div>
+                <p class="text-[10px] text-slate-300 leading-relaxed">
+                    You can now unlock and change your profile avatars! Read more chapters to unlock special character portraits like Lumi, Lyra, and more. Go to Settings > Tap Edit Icon on Avatar.
+                </p>
+            </div>
+            
             <div class="news-card">
                 <div class="flex justify-between items-start mb-2">
                     <h4 class="text-white text-xs font-black uppercase tracking-widest">Chapter 0 Released</h4>
@@ -280,20 +352,6 @@ function renderNews(container) {
                     A special Chapter Out Now!! Experience the beginning of the end in this exclusive video prologue. Tap "Read Now" to access Chapter 0.
                 </p>
             </div>
-
-            <!-- News Item 2 -->
-            <div class="news-card">
-                 <div class="flex justify-between items-start mb-2">
-                    <h4 class="text-white text-xs font-black uppercase tracking-widest">System Update v2.2.0</h4>
-                    <span class="text-[8px] text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">UPDATE</span>
-                </div>
-                <ul class="text-[10px] text-slate-400 space-y-1.5 list-disc pl-3">
-                    <li>Added genre tags and official book credits.</li>
-                    <li>Introduced new Info Hub on the top bar.</li>
-                    <li>Added <b class="text-white">News</b> and <b class="text-white">Author's Log</b> tabs.</li>
-                    <li>UI adjustments and performance optimizations.</li>
-                </ul>
-            </div>
         </div>
     `;
 }
@@ -301,6 +359,15 @@ function renderNews(container) {
 function renderAuthorsLog(container) {
     container.innerHTML = `
         <div class="animate-in fade-in slide-in-from-bottom-4 duration-500">
+             <div class="log-card">
+                 <div class="flex items-center gap-2 mb-2">
+                    <span class="text-lg">🛠️</span>
+                    <h4 class="text-blue-400 text-[10px] font-black uppercase tracking-widest">Dev Log #2</h4>
+                </div>
+                <p class="text-[10px] text-slate-300 leading-relaxed mb-2">
+                    Added progress tracking. I can now see where everyone is in the story to help me pace future chapters better. 
+                </p>
+            </div>
             <div class="log-card">
                 <div class="flex items-center gap-2 mb-2">
                     <span class="text-lg">⚠️</span>
@@ -504,6 +571,35 @@ window.likeChapterInline = async (id) => {
     } catch(e){}
 };
 
+// --- READING PROGRESS & READER ---
+function saveReadingProgress(chapterId, pageNum) {
+    if (!currentUser) return;
+    // Clear previous timeout to debounce (prevent hammering DB while scrolling)
+    if (readingSaveTimeout) clearTimeout(readingSaveTimeout);
+    
+    readingSaveTimeout = setTimeout(async () => {
+        try {
+            // Update local state first
+            if (profileData) {
+                // Only update max chapter if new is greater
+                if ((profileData.last_chapter || 0) < chapterId) {
+                    profileData.last_chapter = chapterId;
+                }
+                profileData.last_page = pageNum;
+            }
+            
+            // DB Update
+            // We use 'last_active_at' so we can sort by time in Admin view
+            await supabase.from('profiles').update({ 
+                last_chapter: profileData.last_chapter,
+                last_page: pageNum,
+                last_active_at: new Date()
+            }).eq('id', currentUser.id);
+            
+        } catch(e) { console.error("Save progress failed", e); }
+    }, 3000); // Save after 3 seconds of settling
+}
+
 window.openReader = (id) => {
     currentChapterId = id;
     window.showView('reader-view');
@@ -511,6 +607,9 @@ window.openReader = (id) => {
     const progress = document.getElementById('reader-progress-bar');
     if(!container) return;
     
+    // Save that we opened this chapter
+    saveReadingProgress(id, 1);
+
     // Check if it is the special video chapter (ID 0)
     if (id === 0) {
         container.innerHTML = `
@@ -527,7 +626,6 @@ window.openReader = (id) => {
                 <p class="text-center text-red-500 mt-6 font-bold text-xs tracking-[0.3em] animate-pulse">TRANSMISSION ESTABLISHED</p>
             </div>
         `;
-        // Hide progress bar for video
         if(progress) progress.style.width = '0%';
         return;
     }
@@ -537,12 +635,28 @@ window.openReader = (id) => {
     
     setTimeout(() => {
         container.innerHTML = '';
+        
+        // Create IntersectionObserver to track which page is visible
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if(entry.isIntersecting) {
+                    const pageNum = parseInt(entry.target.getAttribute('data-page'));
+                    saveReadingProgress(id, pageNum);
+                }
+            });
+        }, { threshold: 0.5 }); // Trigger when 50% visible
+
         for(let i=1; i<=config.pages; i++) {
             const img = document.createElement('img');
             img.src = `images/imageschapter${id}/${i}.png`;
-            img.className = "w-full shadow-2xl bg-slate-900";
+            img.className = "w-full shadow-2xl bg-slate-900 mb-0.5"; // Added tiny margin for separation
             img.loading = "lazy";
+            img.setAttribute('data-page', i);
             img.onerror = () => { img.style.display = 'none'; };
+            
+            // Attach observer
+            observer.observe(img);
+            
             container.appendChild(img);
         }
     }, 400);
@@ -569,6 +683,63 @@ window.openReader = (id) => {
         }
     };
 };
+
+// --- ADMIN DASHBOARD ---
+async function loadAdminDashboard() {
+    const container = document.getElementById('admin-dashboard-content');
+    if(!container) return;
+    
+    try {
+        const { data } = await supabase.from('profiles')
+            .select('*')
+            .order('last_active_at', { ascending: false }); // Show most recently active first
+
+        if(!data || data.length === 0) {
+            container.innerHTML = '<div class="p-8 text-center text-xs text-slate-500">No signals detected.</div>';
+            return;
+        }
+
+        let html = `
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>User</th>
+                    <th>Last Active</th>
+                    <th>Ch</th>
+                    <th>Pg</th>
+                </tr>
+            </thead>
+            <tbody>
+        `;
+
+        html += data.map(u => {
+            const date = u.last_active_at ? new Date(u.last_active_at).toLocaleString() : 'N/A';
+            const shortName = u.display_name.length > 15 ? u.display_name.substring(0, 15) + '...' : u.display_name;
+            const ch = u.last_chapter || 0;
+            const pg = u.last_page || 0;
+
+            return `
+                <tr>
+                    <td>
+                        <div class="flex items-center gap-2">
+                            <img src="${u.avatar_url}" class="w-5 h-5 rounded-full border border-white/10">
+                            <span class="font-bold text-white">${shortName}</span>
+                        </div>
+                    </td>
+                    <td class="text-[9px] font-mono text-slate-400">${date}</td>
+                    <td class="text-purple-400 font-bold">${ch}</td>
+                    <td class="text-blue-400 font-bold">${pg}</td>
+                </tr>
+            `;
+        }).join('');
+
+        html += `</tbody></table>`;
+        container.innerHTML = html;
+
+    } catch(e) {
+        container.innerHTML = `<div class="p-8 text-red-500 text-xs">Access Denied / Error: ${e.message}</div>`;
+    }
+}
 
 window.showUserProfile = async (userId) => {
     try {
