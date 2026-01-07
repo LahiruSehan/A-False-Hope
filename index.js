@@ -311,7 +311,8 @@ async function loadChapters() {
         const { data: comms } = await supabase.from('chapter_comments').select('chapter_id');
         let chapters = [];
         
-        for(let i=1; i<=30; i++) {
+        // Loop starts from 0 to include Chapter 0
+        for(let i=0; i<=30; i++) {
             const config = CHAPTER_CONFIG[i] || { title: `CHAPTER ${i}`, pages: DEFAULT_CHAPTER_PAGES };
             chapters.push({ 
                 id: i, 
@@ -324,21 +325,29 @@ async function loadChapters() {
         if (chapterSort === 'new') chapters.sort((a,b) => b.id - a.id);
         else chapters.sort((a,b) => a.id - b.id);
 
-        container.innerHTML = chapters.map(c => `
-            <div id="chapter-card-${c.id}" class="chapter-tablet rounded-2xl p-4 flex justify-between items-center shadow-xl">
+        container.innerHTML = chapters.map(c => {
+            const isZero = c.id === 0;
+            // Apply Red Glow for Chapter 0
+            const tabletClass = isZero ? 'chapter-tablet border-red-500/50 shadow-[0_0_15px_rgba(220,38,38,0.3)]' : 'chapter-tablet shadow-xl';
+            const numClass = isZero ? 'fantasy-font text-red-500 drop-shadow-[0_0_5px_rgba(220,38,38,0.8)] text-xl' : 'fantasy-font chapter-num-glow';
+            const titleClass = isZero ? 'text-red-400 animate-pulse' : 'text-white';
+            const orbClass = isZero ? 'border-red-500/30 bg-red-900/10' : 'action-orb';
+
+            return `
+            <div id="chapter-card-${c.id}" class="${tabletClass} rounded-2xl p-4 flex justify-between items-center mb-4">
                 <div class="flex items-center gap-4 flex-1 cursor-pointer" onclick="openReader(${c.id})">
-                    <div class="fantasy-font chapter-num-glow">${c.id}</div>
+                    <div class="${numClass}">${c.id}</div>
                     <div class="flex flex-col">
-                        <p class="fantasy-font text-[11px] font-bold text-white uppercase tracking-widest">${c.title}</p>
+                        <p class="fantasy-font text-[11px] font-bold ${titleClass} uppercase tracking-widest">${c.title}</p>
                         <p class="text-[7px] text-slate-500 font-black uppercase tracking-tighter mt-0.5">TAP TO OPEN PORTAL</p>
                     </div>
                 </div>
                 <div class="flex gap-3">
-                    <button onclick="likeChapterInline(${c.id})" class="action-orb"><span class="text-red-500">♥</span><span class="text-[9px]">${c.likes}</span></button>
-                    <button onclick="toggleChapterInlineComments(${c.id})" class="action-orb"><span class="text-slate-300">💬</span><span class="text-[9px]">${c.comments}</span></button>
+                    <button onclick="likeChapterInline(${c.id})" class="${orbClass} w-[50px] h-[50px] rounded-full flex flex-col items-center justify-center border border-white/10 transition-all"><span class="text-red-500">♥</span><span class="text-[9px] text-slate-300">${c.likes}</span></button>
+                    <button onclick="toggleChapterInlineComments(${c.id})" class="${orbClass} w-[50px] h-[50px] rounded-full flex flex-col items-center justify-center border border-white/10 transition-all"><span class="text-slate-300">💬</span><span class="text-[9px] text-slate-300">${c.comments}</span></button>
                 </div>
             </div>
-            <div id="chapter-comments-inline-${c.id}" class="hidden bg-black/40 border-x border-b border-white/5 rounded-b-2xl mx-2 overflow-hidden">
+            <div id="chapter-comments-inline-${c.id}" class="hidden bg-black/40 border-x border-b border-white/5 rounded-b-2xl mx-2 overflow-hidden mb-4">
                 <div class="p-4 space-y-4">
                     <div class="flex gap-2">
                         <input id="chapter-input-${c.id}" type="text" placeholder="Share your thoughts..." class="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-[10px] text-white outline-none">
@@ -346,7 +355,8 @@ async function loadChapters() {
                     </div>
                     <div id="list-${c.id}" class="space-y-3 max-h-[300px] overflow-y-auto pr-1"></div>
                 </div>
-            </div>`).join('');
+            </div>`;
+        }).join('');
     } catch(e){
         container.innerHTML = `<div class="p-10 text-center opacity-30 text-xs">Error loading chapters.</div>`;
     }
@@ -432,6 +442,27 @@ window.openReader = (id) => {
     const progress = document.getElementById('reader-progress-bar');
     if(!container) return;
     
+    // Check if it is the special video chapter (ID 0)
+    if (id === 0) {
+        container.innerHTML = `
+            <div class="min-h-screen flex flex-col items-center justify-center p-4">
+                <div class="w-full aspect-video rounded-xl overflow-hidden shadow-2xl border border-red-900/50 relative bg-black">
+                     <iframe class="w-full h-full absolute inset-0" 
+                        src="https://www.youtube.com/embed/gD72CMuUQrQ?autoplay=1&vq=hd1080&rel=0&modestbranding=1" 
+                        title="Chapter 0" 
+                        frameborder="0" 
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+                        allowfullscreen>
+                     </iframe>
+                </div>
+                <p class="text-center text-red-500 mt-6 font-bold text-xs tracking-[0.3em] animate-pulse">TRANSMISSION ESTABLISHED</p>
+            </div>
+        `;
+        // Hide progress bar for video
+        if(progress) progress.style.width = '0%';
+        return;
+    }
+
     const config = CHAPTER_CONFIG[id] || { title: `CHAPTER ${id}`, pages: DEFAULT_CHAPTER_PAGES };
     container.innerHTML = '<div class="p-20 text-center opacity-10 text-[9px] uppercase tracking-[1em]">Summoning Portal...</div>';
     

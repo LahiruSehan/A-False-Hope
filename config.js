@@ -19,6 +19,7 @@ export const APP_CONFIG = {
  * Chapter Configuration
  */
 export const CHAPTER_CONFIG = {
+    0:  { title: "CHAPTER 0", pages: 1 }, // Special Video Chapter
     1:  { title: "THE RAGE", pages: 24 },
     2:  { title: "BROKEN NEW WORLD", pages: 37 },
     3:  { title: "BELIEVES", pages: 60 },
