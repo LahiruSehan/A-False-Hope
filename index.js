@@ -10,7 +10,7 @@ const supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SU
 // --- STATE MANAGEMENT ---
 let currentUser = null, profileData = null, navHistory = ['home-view'], currentRating = 0;
 let chapterSort = 'old';
-let homeTab = 'leaderboard';
+let homeTab = 'leaderboard'; // 'leaderboard', 'news', 'authors-log'
 let currentChapterId = null;
 let activeChatId = null;
 let deferredPrompt = null;
@@ -242,18 +242,87 @@ window.toggleModal = (id) => {
 };
 
 // --- HOME & LEADERBOARD ---
-window.setHomeTab = (tab) => { homeTab = tab; loadHomeContent(); };
+window.setHomeTab = (tab) => { 
+    v();
+    homeTab = tab; 
+    loadHomeContent(); 
+};
 
 async function loadHomeContent() {
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.id === `tab-${homeTab}`));
+    // Update Tab UI
+    document.querySelectorAll('.tab-btn').forEach(b => {
+        if(b.id === `tab-${homeTab}`) b.classList.add('active');
+        else b.classList.remove('active');
+    });
+
     const c = document.getElementById('home-tab-content');
     if (!c) return;
-    c.innerHTML = '<div class="opacity-10 py-10 text-center uppercase text-[8px] tracking-widest">Gathering Data...</div>';
-    
+
+    if (homeTab === 'leaderboard') {
+        renderLeaderboard(c);
+    } else if (homeTab === 'news') {
+        renderNews(c);
+    } else if (homeTab === 'authors-log') {
+        renderAuthorsLog(c);
+    }
+}
+
+function renderNews(container) {
+    container.innerHTML = `
+        <div class="animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <!-- News Item 1 -->
+            <div class="news-card">
+                <div class="flex justify-between items-start mb-2">
+                    <h4 class="text-white text-xs font-black uppercase tracking-widest">Chapter 0 Released</h4>
+                    <span class="text-[8px] text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">SPECIAL</span>
+                </div>
+                <p class="text-[10px] text-slate-300 leading-relaxed">
+                    A special Chapter Out Now!! Experience the beginning of the end in this exclusive video prologue. Tap "Read Now" to access Chapter 0.
+                </p>
+            </div>
+
+            <!-- News Item 2 -->
+            <div class="news-card">
+                 <div class="flex justify-between items-start mb-2">
+                    <h4 class="text-white text-xs font-black uppercase tracking-widest">System Update v2.2.0</h4>
+                    <span class="text-[8px] text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">UPDATE</span>
+                </div>
+                <ul class="text-[10px] text-slate-400 space-y-1.5 list-disc pl-3">
+                    <li>Added genre tags and official book credits.</li>
+                    <li>Introduced new Info Hub on the top bar.</li>
+                    <li>Added <b class="text-white">News</b> and <b class="text-white">Author's Log</b> tabs.</li>
+                    <li>UI adjustments and performance optimizations.</li>
+                </ul>
+            </div>
+        </div>
+    `;
+}
+
+function renderAuthorsLog(container) {
+    container.innerHTML = `
+        <div class="animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div class="log-card">
+                <div class="flex items-center gap-2 mb-2">
+                    <span class="text-lg">⚠️</span>
+                    <h4 class="text-red-400 text-[10px] font-black uppercase tracking-widest">Navigation Warning</h4>
+                </div>
+                <p class="text-[10px] text-slate-300 leading-relaxed mb-2">
+                    Using your phone's native back option/gesture will currently <b class="text-white">close the entire app</b>.
+                </p>
+                <div class="bg-white/5 p-2 rounded text-[9px] text-slate-400 italic border-l-2 border-purple-500">
+                    "As the author and developer, I am actively working on a solution to implement a proper back option that supports the phone's native back gesture. Please use the in-app buttons for now."
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+async function renderLeaderboard(container) {
+    container.innerHTML = '<div class="opacity-10 py-10 text-center uppercase text-[8px] tracking-widest">Gathering Data...</div>';
     try {
         const { data } = await supabase.from('profiles').select('*').order('created_at', { ascending: false }).limit(20);
         
-        c.innerHTML = (data || []).map((u, i) => {
+        container.innerHTML = (data || []).map((u, i) => {
             const email = u.email ? u.email.toLowerCase() : '';
             const isAuth = email === APP_CONFIG.authorEmail.toLowerCase();
             const isFirst = email === APP_CONFIG.firstReaderEmail.toLowerCase();
@@ -291,7 +360,7 @@ async function loadHomeContent() {
                 </div>
             </div>`;
         }).join('');
-    } catch(e) { c.innerHTML = '<p class="text-center py-10 opacity-20 text-[8px]">FAILED TO LOAD DATA</p>'; }
+    } catch(e) { container.innerHTML = '<p class="text-center py-10 opacity-20 text-[8px]">FAILED TO LOAD DATA</p>'; }
 }
 
 // --- CHAPTERS ---

@@ -159,6 +159,32 @@
             cursor: pointer;
         }
         .setting-row:active { background: rgba(255,255,255,0.02); }
+
+        .news-card {
+            background: linear-gradient(145deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            position: relative;
+            overflow: hidden;
+        }
+        .news-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 3px;
+            height: 100%;
+            background: var(--aura-color);
+        }
+        .log-card {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px dashed rgba(255, 255, 255, 0.15);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 10px;
+        }
     </style>
 </head>
 <body class="bg-[#020617]">
@@ -214,12 +240,14 @@
         <div class="hero-wrapper">
             <div class="hero-image-container"><img src="https://i.ibb.co/0jNjDF8k/Cover2.png" class="hero-image"><div class="hero-black-fade"></div></div>
             <div class="px-6 -mt-10 relative z-10">
-                <div class="flex items-center gap-2 justify-center mb-2">
+                <!-- Genre Tags Aligned with Title -->
+                <div class="flex items-center gap-2 mb-2">
                     <span class="text-[8px] font-black text-slate-500 uppercase tracking-widest border border-slate-700 px-2 py-0.5 rounded-full">Sci-Fi</span>
                     <span class="text-[8px] font-black text-slate-500 uppercase tracking-widest border border-slate-700 px-2 py-0.5 rounded-full">Romance</span>
                     <span class="text-[8px] font-black text-slate-500 uppercase tracking-widest border border-slate-700 px-2 py-0.5 rounded-full">Mystery</span>
                     <span class="text-[8px] font-black text-slate-500 uppercase tracking-widest border border-slate-700 px-2 py-0.5 rounded-full">Horror</span>
                 </div>
+                
                 <h2 class="bold-italic text-4xl animated-title mb-[-6px]">A FALSE HOPE</h2>
                 <p class="text-[8px] text-purple-400 font-bold uppercase tracking-[0.2em] mt-2 mb-1">Based on Hope 2877 Novel</p>
                 <p class="text-[12px] text-slate-400 font-medium max-w-[280px] mt-2">Lies built the future, faith delayed the end, and extinction arrived exactly as foretold.</p>
@@ -237,9 +265,10 @@
                 </div>
                 
                 <div class="pt-6">
-                    <div class="flex gap-6 border-b border-white/5 mb-4">
-                        <button onclick="setHomeTab('leaderboard')" id="tab-leaderboard" class="tab-btn active pb-2 text-[10px] font-black uppercase">Top Readers</button>
-                        
+                    <div class="flex gap-6 border-b border-white/5 mb-4 overflow-x-auto no-scrollbar">
+                        <button onclick="setHomeTab('leaderboard')" id="tab-leaderboard" class="tab-btn active pb-2 text-[10px] font-black uppercase whitespace-nowrap">Top Readers</button>
+                        <button onclick="setHomeTab('news')" id="tab-news" class="tab-btn pb-2 text-[10px] font-black uppercase whitespace-nowrap">News</button>
+                        <button onclick="setHomeTab('authors-log')" id="tab-authors-log" class="tab-btn pb-2 text-[10px] font-black uppercase whitespace-nowrap">Authors Log</button>
                     </div>
                     <div id="home-tab-content" class="min-h-[200px] space-y-4 pb-10"></div>
                 </div>
@@ -306,14 +335,14 @@
             
             <div class="space-y-4">
                 <div class="bg-white/5 p-4 rounded-xl border border-white/5">
-                    <p class="text-[11px] text-slate-300 leading-relaxed font-medium">This webtoon is based on the novel <span class="text-purple-400 font-bold">Hope 2877</span> by <span class="text-white">Sehan Karunarathne</span>.</p>
-                    <p class="text-[10px] text-emerald-400 font-bold uppercase mt-2 tracking-widest">This webtoon is free.</p>
+                    <p class="text-[11px] text-slate-300 leading-relaxed font-medium">This immersive webtoon adapts the novel <span class="text-purple-400 font-bold">Hope 2877</span> by <span class="text-white">Sehan Karunarathne</span>. Experience the story for free.</p>
+                    <p class="text-[10px] text-emerald-400 font-bold uppercase mt-2 tracking-widest">Free to read.</p>
                 </div>
 
                 <div class="space-y-2">
                     <h4 class="text-[9px] font-black text-slate-500 uppercase tracking-widest">GEN AI USAGE</h4>
                     <p class="text-[10px] text-slate-400 leading-relaxed">
-                        GEN AI has been used in some webtoon pages but the rough sketches and all that was done by had by digital artists and final polishes color edits or complex scenes uses GEN AI.
+                        While the core artistic vision, rough sketches, and storyboarding are human-created, Generative AI tools assist in final polishing, color grading, and rendering complex scenes to enhance the visual experience.
                     </p>
                 </div>
             </div>
@@ -401,7 +430,7 @@
                         </div>
                         <div class="setting-row">
                             <span class="text-[10px] text-slate-300">Version</span>
-                            <span class="text-[9px] text-slate-500">v2.1.3</span>
+                            <span class="text-[9px] text-slate-500">v2.2.0</span>
                         </div>
                     </div>
                 </div>
