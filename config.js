@@ -19,19 +19,35 @@ export const APP_CONFIG = {
  * unlockChapter: The chapter number the user must reach to use this avatar.
  */
 export const AVATAR_CONFIG = [
-    { name: "Guardian", url: "https://i.ibb.co/LXJTkfFW/guardian.jpg", unlockChapter: 0 },
-    { name: "Moster", url: "https://i.ibb.co/4wQRfS6H/moster.jpg", unlockChapter: 2 },
-    { name: "Man", url: "https://i.ibb.co/jvR4YR2N/man.jpg", unlockChapter: 5 },
-    { name: "Lady", url: "https://i.ibb.co/Fb1TJKvm/lady.jpg", unlockChapter: 8 },
-    { name: "Viviyan", url: "https://i.ibb.co/Z11CvtCN/viviyan.jpg", unlockChapter: 10 },
-    { name: "Epic Lumi", url: "https://i.ibb.co/vWnBNTx/epiclumi.jpg", unlockChapter: 12 },
-    { name: "Epic Eon", url: "https://i.ibb.co/mCzGdXcZ/epiceon.jpg", unlockChapter: 15 },
-    { name: "Lyra", url: "https://i.ibb.co/gZs51VXt/lyra.jpg", unlockChapter: 18 },
-    { name: "Eon", url: "https://i.ibb.co/C56TW16S/eon.jpg", unlockChapter: 20 },
-    { name: "Lumi", url: "https://i.ibb.co/4gV8Kqjr/lumi.jpg", unlockChapter: 22 },
-    { name: "Jake", url: "https://i.ibb.co/C5PdB8zr/jake.jpg", unlockChapter: 25 },
-    { name: "Viyona", url: "https://i.ibb.co/1YVBhfzj/viyona.jpg", unlockChapter: 28 }
+    // Chapter 1
+    { name: "Jake", url: "https://i.ibb.co/C5PdB8zr/jake.jpg", unlockChapter: 1 },
+    { name: "Viyona", url: "https://i.ibb.co/1YVBhfzj/viyona.jpg", unlockChapter: 1 },
+
+    // Chapter 2
+    { name: "Eon", url: "https://i.ibb.co/C56TW16S/eon.jpg", unlockChapter: 2 },
+    { name: "Lumi", url: "https://i.ibb.co/4gV8Kqjr/lumi.jpg", unlockChapter: 2 },
+
+    // Chapter 3
+    { name: "Lyra", url: "https://i.ibb.co/gZs51VXt/lyra.jpg", unlockChapter: 3 },
+
+    // Chapter 5
+    { name: "Epic Eon", url: "https://i.ibb.co/mCzGdXcZ/epiceon.jpg", unlockChapter: 5 },
+    { name: "Epic Lumi", url: "https://i.ibb.co/vWnBNTx/epiclumi.jpg", unlockChapter: 5 },
+
+    // Chapter 17
+    { name: "Viviyan", url: "https://i.ibb.co/Z11CvtCN/viviyan.jpg", unlockChapter: 17 },
+
+    // Chapter 20
+    { name: "Guardian", url: "https://i.ibb.co/LXJTkfFW/guardian.jpg", unlockChapter: 20 },
+
+    // Chapter 28
+    { name: "Moster", url: "https://i.ibb.co/4wQRfS6H/moster.jpg", unlockChapter: 28 },
+
+    // Chapter 29
+    { name: "Man", url: "https://i.ibb.co/jvR4YR2N/man.jpg", unlockChapter: 29 },
+    { name: "Lady", url: "https://i.ibb.co/Fb1TJKvm/lady.jpg", unlockChapter: 29 }
 ];
+
 
 export const CHAPTER_CONFIG = {
     0:  { title: "CHAPTER 0", pages: 1 }, // Special Video Chapter
