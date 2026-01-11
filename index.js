@@ -390,7 +390,7 @@ function renderAuthorsLog(container) {
                     <h4 class="text-blue-400 text-[10px] font-black uppercase tracking-widest">Dev Log #2</h4>
                 </div>
                 <p class="text-[10px] text-slate-300 leading-relaxed mb-2">
-                    Added progress tracking. I can now see where everyone is in the story to help me pace future chapters better. 
+                    Added Special Feature Unlocks whenever Explorers reach new Chapters. 
                 </p>
             </div>
         </div>
