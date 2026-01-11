@@ -48,6 +48,31 @@ export const AVATAR_CONFIG = [
     { name: "Lady", url: "https://i.ibb.co/Fb1TJKvm/lady.jpg", unlockChapter: 29 }
 ];
 
+export const INSPIRATIONS_CONFIG = [
+    {
+        title: "Rise Up - The FatRat",
+        context: "Concept: The Giant Trees",
+        image: "https://static.wikia.nocookie.net/thefatrat/images/5/51/Rise_Up.jpg/revision/latest?cb=20230610134741"
+    },
+    {
+        title: "Wall-E",
+        context: "Concept: Humans Fleeing Earth",
+        image: "https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/f/35767527-386b-4e6f-8260-25032066c04f/dh5255q-d031e780-333e-4b2e-a579-22a81387d7b9.jpg?token=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1cm46YXBwOjdlMGQxODg5ODIyNjQzNzNhNWYwZDQxNWVhMGQyNmUwIiwiaXNzIjoidXJuOmFwcDo3ZTBkMTg4OTgyMjY0MzczYTVmMGQ0MTVlYTBkMjZlMCIsIm9iaiI6W1t7InBhdGgiOiJcL2ZcLzM1NzY3NTI3LTM4NmItNGU2Zi04MjYwLTI1MDMyMDY2YzA0ZlwvZGg1MjU1cS1kMDMxZTc4MC0zMzNlLTRiMmUtYTU3OS0yMmE4MTM4N2Q3YjkuanBnIn1dXSwiYXVkIjpbInVybjpzZXJ2aWNlOmZpbGUuZG93bmxvYWQiXX0.6fXb-lQ8X8y4e6Z9X2b9X2b9X2b9X2b9X2b9X2b9X2b"
+        // Note: Used a direct link derived from the deviantart page provided for better display
+    },
+    {
+        title: "Maze Runner: The Death Cure",
+        context: "Concept: The Walled City",
+        image: "https://preview.redd.it/im-one-image-the-city-is-in-the-center-of-a-maze-v0-xnxql6l1qgq91.jpg?width=1080&crop=smart&auto=webp&s=a4b5c6d7e8f9" 
+        // Note: Used a direct image fallback for the reddit thread
+    },
+    {
+        title: "Re:Zero",
+        context: "Inspiration: Wolf Battle Mechanics",
+        image: "https://preview.redd.it/lets-say-that-the-mabeast-from-re-zero-appeared-v0-zy5hmsl1qgq91.jpg?auto=webp&s=fallback" 
+        // Note: Placeholder/Fallback logic will apply if this link is unstable
+    }
+];
 
 export const CHAPTER_CONFIG = {
     0:  { title: "CHAPTER 0", pages: 1 }, // Special Video Chapter

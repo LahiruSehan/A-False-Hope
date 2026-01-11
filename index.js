@@ -1,4 +1,4 @@
-import { APP_CONFIG, CHAPTER_CONFIG, DEFAULT_CHAPTER_PAGES, AVATAR_CONFIG } from './config.js';
+import { APP_CONFIG, CHAPTER_CONFIG, DEFAULT_CHAPTER_PAGES, AVATAR_CONFIG, INSPIRATIONS_CONFIG } from './config.js';
 
 const INTERNAL_API_KEY = "AIzaSyAOLlW_kN85EAassW-OV4OTuAT0Enl8RVc";
 if (typeof process === 'undefined') window.process = { env: { API_KEY: INTERNAL_API_KEY } };
@@ -10,7 +10,7 @@ const supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SU
 // --- STATE MANAGEMENT ---
 let currentUser = null, profileData = null, navHistory = ['home-view'], currentRating = 0;
 let chapterSort = 'old';
-let homeTab = 'leaderboard'; // 'leaderboard', 'news', 'authors-log'
+let homeTab = 'leaderboard'; // 'leaderboard', 'news', 'authors-log', 'inspirations'
 let currentChapterId = null;
 let activeChatId = null;
 let deferredPrompt = null;
@@ -185,7 +185,7 @@ async function syncProfile() {
         } else {
             const newProfile = {
                 id: currentUser.id,
-                display_name: currentUser.user_metadata.full_name || 'Guest Reader',
+                display_name: currentUser.user_metadata.full_name || 'Guest Explorer',
                 avatar_url: currentUser.user_metadata.avatar_url || APP_CONFIG.assets.defaultAvatar,
                 email: currentUser.email,
                 bio: 'Surviving the hope.',
@@ -264,7 +264,19 @@ window.openAvatarSelection = () => {
     // Use logged in user's last chapter, or 0 if not set
     const userMaxChapter = profileData ? (profileData.last_chapter || 0) : 0;
     
-    grid.innerHTML = AVATAR_CONFIG.map((av, index) => {
+    // Default Option (Google/Original)
+    const originalAvatar = currentUser?.user_metadata?.avatar_url || APP_CONFIG.assets.defaultAvatar;
+    const isDefaultSelected = profileData && profileData.avatar_url === originalAvatar;
+    
+    let html = `
+        <div onclick="selectAvatar('${originalAvatar}')" class="avatar-option ${isDefaultSelected ? 'selected' : ''}">
+            <img src="${originalAvatar}" loading="lazy">
+            <div class="absolute bottom-0 inset-x-0 bg-black/60 text-[6px] text-center text-white py-0.5 font-bold uppercase">Original</div>
+            ${isDefaultSelected ? '<div class="absolute inset-0 border-[3px] border-purple-500 rounded-full"></div>' : ''}
+        </div>
+    `;
+
+    html += AVATAR_CONFIG.map((av, index) => {
         const isLocked = av.unlockChapter > userMaxChapter;
         const isSelected = profileData && profileData.avatar_url === av.url;
         
@@ -285,6 +297,7 @@ window.openAvatarSelection = () => {
         `;
     }).join('');
 
+    grid.innerHTML = html;
     window.toggleModal('avatar-modal');
 };
 
@@ -298,7 +311,7 @@ window.selectAvatar = async (url) => {
         window.toggleModal('avatar-modal');
         
         await supabase.from('profiles').update({ avatar_url: url }).eq('id', currentUser.id);
-        alert("Avatar Updated!");
+        alert("Identity Updated.");
     } catch(e) {
         alert("Failed to update avatar.");
     }
@@ -327,6 +340,8 @@ async function loadHomeContent() {
         renderNews(c);
     } else if (homeTab === 'authors-log') {
         renderAuthorsLog(c);
+    } else if (homeTab === 'inspirations') {
+        renderInspirations(c);
     }
 }
 
@@ -335,21 +350,22 @@ function renderNews(container) {
         <div class="animate-in fade-in slide-in-from-bottom-4 duration-500">
              <div class="news-card">
                  <div class="flex justify-between items-start mb-2">
-                    <h4 class="text-white text-xs font-black uppercase tracking-widest">Avatar Update</h4>
+                    <h4 class="text-white text-xs font-black uppercase tracking-widest">Inspirations Unlocked</h4>
                     <span class="text-[8px] text-green-400 bg-green-500/10 px-2 py-0.5 rounded border border-green-500/20">NEW</span>
                 </div>
                 <p class="text-[10px] text-slate-300 leading-relaxed">
-                    You can now unlock and change your profile avatars! Read more chapters to unlock special character portraits like Lumi, Lyra, and more. Go to Settings > Tap Edit Icon on Avatar.
+                    A new <span class="text-purple-400 font-bold">Inspirations Tab</span> is now available. Discover the music, movies, and art that shaped this world. 
+                    <br><span class="opacity-50 italic">(Requires reaching Chapter 30 to view content)</span>
                 </p>
             </div>
-            
+
             <div class="news-card">
-                <div class="flex justify-between items-start mb-2">
-                    <h4 class="text-white text-xs font-black uppercase tracking-widest">Chapter 0 Released</h4>
-                    <span class="text-[8px] text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">SPECIAL</span>
+                 <div class="flex justify-between items-start mb-2">
+                    <h4 class="text-white text-xs font-black uppercase tracking-widest">Avatar Reset</h4>
+                    <span class="text-[8px] text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">UPDATE</span>
                 </div>
                 <p class="text-[10px] text-slate-300 leading-relaxed">
-                    A special Chapter Out Now!! Experience the beginning of the end in this exclusive video prologue. Tap "Read Now" to access Chapter 0.
+                    You can now restore your original profile picture from the Avatar menu if you wish to switch back from a character portrait.
                 </p>
             </div>
         </div>
@@ -361,6 +377,15 @@ function renderAuthorsLog(container) {
         <div class="animate-in fade-in slide-in-from-bottom-4 duration-500">
              <div class="log-card">
                  <div class="flex items-center gap-2 mb-2">
+                    <span class="text-lg">✨</span>
+                    <h4 class="text-purple-400 text-[10px] font-black uppercase tracking-widest">Dev Log #3</h4>
+                </div>
+                <p class="text-[10px] text-slate-300 leading-relaxed mb-2">
+                    Upgraded role tags! All readers are now officially designated as <b class="text-white">Explorers</b>. Added visual flair to the tag to match the aesthetic.
+                </p>
+            </div>
+             <div class="log-card">
+                 <div class="flex items-center gap-2 mb-2">
                     <span class="text-lg">🛠️</span>
                     <h4 class="text-blue-400 text-[10px] font-black uppercase tracking-widest">Dev Log #2</h4>
                 </div>
@@ -368,20 +393,46 @@ function renderAuthorsLog(container) {
                     Added progress tracking. I can now see where everyone is in the story to help me pace future chapters better. 
                 </p>
             </div>
-            <div class="log-card">
-                <div class="flex items-center gap-2 mb-2">
-                    <span class="text-lg">⚠️</span>
-                    <h4 class="text-red-400 text-[10px] font-black uppercase tracking-widest">Navigation Warning</h4>
-                </div>
-                <p class="text-[10px] text-slate-300 leading-relaxed mb-2">
-                    Using your phone's native back option/gesture will currently <b class="text-white">close the entire app</b>.
-                </p>
-                <div class="bg-white/5 p-2 rounded text-[9px] text-slate-400 italic border-l-2 border-purple-500">
-                    "As the author and developer, I am actively working on a solution to implement a proper back option that supports the phone's native back gesture. Please use the in-app buttons for now."
-                </div>
-            </div>
         </div>
     `;
+}
+
+function renderInspirations(container) {
+    const isUnlocked = profileData && profileData.last_chapter >= 30;
+    
+    if (!isUnlocked) {
+        container.innerHTML = `
+            <div class="relative min-h-[300px] rounded-xl overflow-hidden border border-white/10 flex items-center justify-center p-6 text-center">
+                <!-- Blurred BG -->
+                <div class="absolute inset-0 bg-[url('https://i.ibb.co/0jNjDF8k/Cover2.png')] bg-cover bg-center blur-xl opacity-30"></div>
+                <div class="relative z-10 space-y-4">
+                    <div class="text-4xl">🔒</div>
+                    <h3 class="text-lg font-black text-white uppercase tracking-widest">Classified Archives</h3>
+                    <p class="text-xs text-slate-400 font-medium">
+                        The inspirations and core memories behind this world are locked.
+                    </p>
+                    <div class="inline-block border border-purple-500/50 bg-purple-900/20 px-4 py-2 rounded-full">
+                        <p class="text-[10px] text-purple-300 font-bold uppercase tracking-widest">Reach Chapter 30 to Unlock</p>
+                    </div>
+                </div>
+            </div>
+        `;
+        return;
+    }
+
+    // Render Unlocked Content
+    container.innerHTML = INSPIRATIONS_CONFIG.map(item => `
+        <div class="inspiration-card animate-in fade-in slide-in-from-bottom-6">
+            <div class="inspiration-img-box group">
+                <img src="${item.image}" alt="${item.title}" onerror="this.src='https://i.ibb.co/0jNjDF8k/Cover2.png'; this.style.filter='grayscale(100%)';">
+            </div>
+            <div class="inspiration-content">
+                <p class="text-[9px] text-purple-400 font-black uppercase tracking-widest mb-1">${item.context}</p>
+                <h3 class="text-sm font-bold text-white leading-tight mb-2">${item.title}</h3>
+                <a href="${item.image}" target="_blank" class="text-[8px] text-slate-400 uppercase tracking-wider underline opacity-50 hover:opacity-100">View Source</a>
+            </div>
+        </div>
+    `).join('');
 }
 
 async function renderLeaderboard(container) {
@@ -405,9 +456,9 @@ async function renderLeaderboard(container) {
             else if (isFirst) glowClass = 'first-reader-glow';
             else if (isCoWriter) glowClass = 'co-writer-glow';
             
-            let tagHTML = 'READER';
+            let tagHTML = '<span class="explorer-tag">EXPLORER</span>';
             if (isAuth) tagHTML = '<span class="author-tag">AUTHOR</span>';
-            else if (isFirst) tagHTML = '<span class="first-reader-tag">FIRST READER & FIRST REVIEWER</span>';
+            else if (isFirst) tagHTML = '<span class="first-reader-tag">FIRST EXPLORER</span>';
             else if (isCoWriter) tagHTML = '<span class="co-writer-tag">CO-WRITER (EMOTIONS)</span>';
 
             let nameColor = 'text-white';
@@ -763,9 +814,9 @@ window.showUserProfile = async (userId) => {
         else if (isFirst) glowClass = 'first-reader-glow';
         else if (isCoWriter) glowClass = 'co-writer-glow';
         
-        let roleTag = '<span class="text-[8px] text-purple-400 font-bold uppercase">READER</span>';
+        let roleTag = '<span class="explorer-tag">EXPLORER</span>';
         if (isAuth) roleTag = '<span class="author-tag">AUTHOR & CREATOR</span>';
-        else if (isFirst) roleTag = '<span class="first-reader-tag">FIRST READER & FIRST REVIEWER</span>';
+        else if (isFirst) roleTag = '<span class="first-reader-tag">FIRST EXPLORER</span>';
         else if (isCoWriter) roleTag = '<span class="co-writer-tag">CO-WRITER (EMOTIONS)</span>';
 
         content.innerHTML = `
@@ -804,13 +855,14 @@ async function loadReaders() {
             else if (isFirst) glowClass = 'first-reader-glow';
             else if (isCoWriter) glowClass = 'co-writer-glow';
             
-            let roleText = 'READER';
+            let roleText = 'EXPLORER';
             if (isAuth) roleText = 'AUTHOR';
-            else if (isFirst) roleText = 'FIRST READER & FIRST REVIEWER';
+            else if (isFirst) roleText = 'FIRST EXPLORER';
             else if (isCoWriter) roleText = 'CO-WRITER';
             
-            let roleColor = 'text-purple-400';
-            if (isFirst) roleColor = 'text-cyan-400';
+            let roleColor = 'text-slate-500';
+            if (isAuth) roleColor = 'text-purple-400';
+            else if (isFirst) roleColor = 'text-cyan-400';
             else if (isCoWriter) roleColor = 'text-fuchsia-400';
 
             return `
@@ -924,13 +976,14 @@ function updateUI() {
     if (nameEl) nameEl.innerText = name.toUpperCase();
     if (settingsNameEl) settingsNameEl.innerText = name.toUpperCase();
     
-    let roleText = 'READER';
-    let roleColorClass = 'text-purple-400';
+    let roleText = 'EXPLORER';
+    let roleColorClass = 'text-slate-400';
     
     if (isAuth) {
         roleText = 'AUTHOR & CREATOR';
+        roleColorClass = 'text-purple-400';
     } else if (isFirst) {
-        roleText = 'FIRST READER & FIRST REVIEWER';
+        roleText = 'FIRST EXPLORER & REVIEWER';
         roleColorClass = 'text-cyan-400';
     } else if (isCoWriter) {
         roleText = 'CO-WRITER (EMOTIONS)';
