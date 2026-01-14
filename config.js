@@ -58,19 +58,16 @@ export const INSPIRATIONS_CONFIG = [
         title: "Wall-E",
         context: "Concept: Humans Fleeing Earth",
         image: "https://i.ibb.co/jv47XNNt/wall-e-wallpaper-pixar-by-thekingblader995-dhksn5u-pre.jpg"
-        // Note: Used a direct link derived from the deviantart page provided for better display
     },
     {
         title: "Maze Runner: The Death Cure",
         context: "Concept: The Walled City",
         image: "https://i.ibb.co/RpZXgXfP/yasobzumb2q91.jpg" 
-        // Note: Used a direct image fallback for the reddit thread
     },
     {
         title: "Re:Zero",
         context: "Inspiration: Wolf Battle Mechanics",
         image: "https://i.ibb.co/21PxgKBc/lets-say-that-the-mabeast-from-re-zero-appeared-in-the-new-v0-u0i7qzg29u8a1.jpg" 
-        // Note: Placeholder/Fallback logic will apply if this link is unstable
     }
 ];
 
@@ -109,4 +106,3 @@ export const CHAPTER_CONFIG = {
 };
 
 export const DEFAULT_CHAPTER_PAGES = 15;
-
