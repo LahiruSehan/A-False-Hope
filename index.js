@@ -40,10 +40,17 @@ window.toggleSetting = (key) => {
 };
 
 // ── AUDIO ────────────────────────────────────────────────────────────────────
-const bgMusic = new Audio('audio/bgm.mp3');
-bgMusic.loop = true;
+let bgMusic = null;
 function toggleMusic(play) {
-    play ? bgMusic.play().catch(() => {}) : bgMusic.pause();
+    if (play) {
+        if (!bgMusic) {
+            bgMusic = new Audio('audio/bgm.mp3');
+            bgMusic.loop = true;
+        }
+        bgMusic.play().catch(() => {});
+    } else {
+        bgMusic?.pause();
+    }
 }
 
 // ── HAPTICS ──────────────────────────────────────────────────────────────────
@@ -367,17 +374,14 @@ function loadChapters() {
     if (!container) return;
 
     let chapters = [];
-    for (let i = 0; i <= 30; i++) {
+    for (let i = 1; i <= 30; i++) {
         const cfg = CHAPTER_CONFIG[i] || { title: `CHAPTER ${i}`, pages: DEFAULT_CHAPTER_PAGES };
         chapters.push({ id: i, title: cfg.title, pages: cfg.pages });
     }
     if (chapterSort === 'new') chapters.sort((a, b) => b.id - a.id);
     else                       chapters.sort((a, b) => a.id - b.id);
 
-    container.innerHTML = chapters.map((c) => {
-        if (c.id === 0) return ch0Card();
-        return chCard(c, idx);
-    }).join('');
+    container.innerHTML = chapters.map((c) => chCard(c)).join('');
 
     // Stagger-animate cards in
     container.querySelectorAll('.ch-card, .ch0-card').forEach((el, i) => {
@@ -391,26 +395,7 @@ function loadChapters() {
     });
 }
 
-function ch0Card() {
-    return `
-    <div class="ch0-card p-5 mb-1" onclick="openReader(0)">
-      <div class="flex items-center gap-4">
-        <div class="w-14 h-14 rounded-2xl bg-red-950/60 border border-red-800/40 flex items-center justify-center flex-shrink-0">
-          <svg class="w-7 h-7 text-red-500" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-        </div>
-        <div class="flex-1 min-w-0">
-          <div class="flex items-center gap-2 mb-1">
-            <span class="text-[8px] font-black text-red-500/70 uppercase tracking-widest border border-red-800/40 px-2 py-0.5 rounded-full">Special · Video</span>
-          </div>
-          <h3 class="ff font-black text-red-400 text-base uppercase tracking-wider leading-tight">Chapter 0</h3>
-          <p class="text-[9px] text-red-600/70 font-black uppercase tracking-widest mt-0.5">Transmission Established</p>
-        </div>
-        <svg class="w-5 h-5 text-red-700/50 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-      </div>
-    </div>`;
-}
-
-function chCard(c, idx) {
+function chCard(c) {
     return `
     <div class="ch-card p-4" onclick="openReader(${c.id})">
       <div class="ch-bg-num">${c.id}</div>
